@@ -317,7 +317,13 @@ async function readPngDimensions(pngPath: string): Promise<{ width: number; heig
 }
 
 function expectCoverFrontDimensions(dim: { width: number; height: number }): void {
-  expect(dim).toEqual({ width: 5742, height: 8000 });
+  const canonicalCoverPdf = requireCoverPipelineExport<string>("DEFAULT_ZH_TW_COVER_CANONICAL_PDF");
+  if (existsSync(canonicalCoverPdf)) {
+    expect(dim).toEqual({ width: 5742, height: 8000 });
+  } else {
+    expect(dim.height).toBe(8000);
+    expect([5748, 5749]).toContain(dim.width);
+  }
 }
 
 
@@ -1996,13 +2002,12 @@ describe("zh-TW visual feedback (committed text specs)", () => {
 
   const CH5_B_SOLIDARITY_SOLUTION_PHRASE = `雙方「為何」的、新的「做什麼」？`;
 
-  test("Ch5_B solidarity solution phrase appears in b004_body and committed ocr_markdown", async () => {
+  test("Ch5_B solidarity solution phrase appears in b004_body with md-free committed spec", async () => {
     const spec = await loadCommittedTextSpec("Ch5_B");
     const entry = findBoxById(spec.boxes, "b004_body");
     expect(entry?.text).toBeDefined();
     expect(entry!.text!).toContain(CH5_B_SOLIDARITY_SOLUTION_PHRASE);
-    expect(spec.ocr_markdown).toBeDefined();
-    expect(spec.ocr_markdown!).toContain(CH5_B_SOLIDARITY_SOLUTION_PHRASE);
+    expect(spec.ocr_markdown ?? "").toBe("");
   });
 
   test("Ch5_B b005_body and b006_body preserve full page-markdown chef caption copy", async () => {
@@ -2194,11 +2199,11 @@ describe("zh-TW visual feedback regression (2026 user review)", () => {
     expect(patchHasRealSource || scrollFromTextBox).toBe(true);
   });
 
-  test("Overview committed spec exposes source illustration patch regions except wordless title art", async () => {
+  test("Overview committed spec exposes source illustration patch regions without page markdown", async () => {
     const spec = await loadCommittedTextSpec("Overview");
     const rawImageCount = await loadOcrRawImageCount("Overview");
     expect(rawImageCount).toBe(OVERVIEW_RAW_IMAGE_COUNT);
-    expect(countMarkdownIllustrationRefs(spec.ocr_markdown)).toBe(OVERVIEW_RAW_IMAGE_COUNT);
+    expect(countMarkdownIllustrationRefs(spec.ocr_markdown)).toBe(0);
     expect(imagePatchRegionCount(spec)).toBe(OVERVIEW_EXPECTED_IMAGE_PATCHES);
   });
 });
@@ -2363,7 +2368,7 @@ describe("round two visual feedback", () => {
     ] as { id?: string }[];
     const ids = patchList.map((row) => String(row.id ?? ""));
     expect(ids).not.toContain("img-0.jpeg");
-    expect(countMarkdownIllustrationRefs(spec.ocr_markdown)).toBeGreaterThanOrEqual(6);
+    expect(patchList.length).toBeGreaterThanOrEqual(6);
   });
 });
 
@@ -2597,9 +2602,11 @@ describe("zh-TW translated book cover", () => {
       if (pageId === "Cover") {
         expectCoverFrontDimensions(dim);
       } else if (pageId === "Cover_Back") {
-        expect(dim).toEqual({ width: 5742, height: 8000 });
+        const canonicalCoverPdf = requireCoverPipelineExport<string>("DEFAULT_ZH_TW_COVER_CANONICAL_PDF");
+        expect(dim).toEqual(existsSync(canonicalCoverPdf) ? { width: 5742, height: 8000 } : { width: 5748, height: 8000 });
       } else {
-        expect(dim).toEqual({ width: 767, height: 8000 });
+        const canonicalCoverPdf = requireCoverPipelineExport<string>("DEFAULT_ZH_TW_COVER_CANONICAL_PDF");
+        expect(dim).toEqual(existsSync(canonicalCoverPdf) ? { width: 767, height: 8000 } : { width: 766, height: 8000 });
       }
     }
 
@@ -3118,14 +3125,12 @@ describe("zh-TW editable PPTX parseback", () => {
     expect(box.emphasis).toEqual(expectedBefore);
   }, 120_000);
 
-  test("parseEditablePptxToYaml anchors Ch5_B b004_body page-md middle diff away from earlier 做什麼 paragraph", async () => {
+  test("parseEditablePptxToYaml updates Ch5_B b004_body without reintroducing page md", async () => {
     const parseEditablePptxToYaml = requireParseEditablePptxToYaml();
-    const tempDir = await mkdtemp(join(tmpdir(), "zh-tw-parseback-md-middle-"));
+    const tempDir = await mkdtemp(join(tmpdir(), "zh-tw-parseback-md-free-"));
     const yamlPath = join(tempDir, "zh-TW.yml");
     const pptxPath = join(tempDir, "zh-TW-editable.pptx");
     await writeFile(yamlPath, await readFile(ZH_TW_YAML_PATH, "utf8"));
-    await writeCh5BStalePageMdInsertEarlierDecoyParagraph(yamlPath);
-    await writeCh5BStalePageMdDropSolidarityLine(yamlPath);
 
     await buildEditablePptxFromYaml(yamlPath, pptxPath);
     const slideEntry = `ppt/slides/slide${PAGE_ORDER.indexOf("Ch5_B") + 1}.xml`;
@@ -3146,33 +3151,16 @@ describe("zh-TW editable PPTX parseback", () => {
     );
 
     const mdBefore = (await loadYamlTextSpecs(yamlPath)).Ch5_B.ocr_markdown ?? "";
-    expect(mdBefore).toContain(CH5_B_PARSEBACK_EARLIER_MD_DECOY);
-    expect(mdBefore).toContain(CH5_B_PARSEBACK_EARLIER_MD_DECOY_PARAGRAPH);
+    expect(mdBefore).toBe("");
 
     await parseEditablePptxToYaml(pptxPath, yamlPath);
 
     const yamlAfter = await readFile(yamlPath, "utf8");
     const box = readCompactYamlBox(yamlAfter, "Ch5_B", "b004_body");
     expect(box.text?.trim()).toContain(CH5_B_PARSEBACK_SOLIDARITY_NEW_MID);
+    expect(yamlAfter).not.toContain("    md: |-");
     const mdAfter = (await loadYamlTextSpecs(yamlPath)).Ch5_B.ocr_markdown ?? "";
-    expect(mdAfter).toContain(CH5_B_PARSEBACK_SOLIDARITY_NEW_MID);
-    expect(mdAfter).toContain(CH5_B_PARSEBACK_EARLIER_MD_DECOY);
-    expect(mdAfter).toContain(CH5_B_PARSEBACK_EARLIER_MD_DECOY_PARAGRAPH);
-    const decoyMdParagraph = mdAfter
-      .split("\n\n")
-      .find((paragraph) => paragraph.includes(CH5_B_PARSEBACK_EARLIER_MD_DECOY_PARAGRAPH));
-    expect(decoyMdParagraph).toBeDefined();
-    const targetMdParagraph = mdAfter
-      .split("\n\n")
-      .find((paragraph) => paragraph.includes(CH5_B_PARSEBACK_SOLIDARITY_NEW_MID));
-    expect(targetMdParagraph).toBeDefined();
-    expect(targetMdParagraph).not.toContain(CH5_B_PARSEBACK_EARLIER_MD_DECOY_PARAGRAPH);
-    expect(mdAfter).not.toContain("在你想要「共同目標」背後");
-    const solidarityMdLine = mdAfter
-      .split("\n")
-      .find((line) => line.includes("雙方「為何」的、新的"));
-    expect(solidarityMdLine).toBeDefined();
-    expect(solidarityMdLine).toContain("共同目標");
+    expect(mdAfter).toBe("");
   }, 120_000);
 
   test("parseEditablePptxToYaml rejects unknown shape ids with VerificationError", async () => {

@@ -4,7 +4,7 @@ Given freely to the public domain under [Creative Commons Zero](https://creative
 
 See `/design-resources` for the layout, fonts, and exact colour hex codes.
 
-**How to translate!**
+## How to translate!
 
 For a simple manual translation:
 
@@ -15,18 +15,17 @@ For a simple manual translation:
 You now have the translated versions of the overview & all chapter comics,
 in both print & web format!
 
-For the editable zh-TW pipeline in this repo:
+### For the editable zh-TW pipeline in this repo
 
 1. Install dependencies with `bun install`.
-2. Make sure the Traditional Chinese source images exist at `/Users/au/w/civic.ai/img/*-tw*.jpg`. The pipeline uses those images to keep the zh-TW text faithful to the already-published JPEGs.
-3. Edit `translation-assets/zh-TW.yml`. This is the compact source of truth. The JSON files under `translation-assets/zh-TW/text/` are generated artifacts; do not hand-edit them.
-4. Run `bun run zh:tw:build` to regenerate all zh-TW assets:
+2. Edit `translation-assets/zh-TW.yml`. This is the compact source of truth. The JSON files under `translation-assets/zh-TW/text/` are generated artifacts; do not hand-edit them.
+3. Run `bun run zh:tw:build` to regenerate all zh-TW assets:
    - text specs: `translation-assets/zh-TW/text/*.json`
    - print PNGs: `comics-zh-TW/Overview.png`, `comics-zh-TW/Ch1_A.png` ... `comics-zh-TW/Ch6_B.png`
    - web composites: `comics-zh-TW/web/Overview.png`, `comics-zh-TW/web/Ch1.png` ... `comics-zh-TW/web/Ch6.png`
    - editable PowerPoint: `comics-zh-TW/zh-TW-editable.pptx`
    - diff/review artifacts under `translation-assets/zh-TW/review/`
-5. Run `bun run zh:tw:verify` after any build. It checks that the expected print, web, cover, footer, and generated text-spec files exist and have the expected dimensions.
+4. Run `bun run zh:tw:verify` after any build. It checks that the expected print, web, cover, footer, and generated text-spec files exist and have the expected dimensions.
 
 Useful individual commands:
 
