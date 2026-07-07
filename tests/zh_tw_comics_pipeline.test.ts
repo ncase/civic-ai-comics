@@ -2127,6 +2127,36 @@ describe("zh-TW editable PPTX parseback", () => {
     expect(results[0].box).toEqual([1, 2, 2, 4]);
   });
 
+  test("matchLegacyShapes maps shapes using text and spatial overlap heuristics", () => {
+    const yamlBoxes = [
+      { id: "b001_title", text: "真的傾聽\n人們想說的話", box: [100, 100, 400, 200] },
+      { id: "b002_body", text: "不是：只聽受歡迎的人", box: [100, 300, 400, 400] },
+    ] as BoxSpec[];
+
+    const deskShapes: ParsedPptxShape[] = [
+      {
+        name: "Shape 1",
+        text: "真的傾聽\n人們想說的話",
+        box: [105, 105, 405, 205],
+        font: undefined,
+        align: "left",
+        emphasis: [],
+      },
+      {
+        name: "Shape 2",
+        text: "不是：只聽受歡迎的人",
+        box: [110, 310, 410, 410],
+        font: undefined,
+        align: "left",
+        emphasis: [],
+      },
+    ];
+
+    const matched = zhTwPipeline.matchLegacyShapes(deskShapes, yamlBoxes);
+    expect(matched.get("b001_title")?.name).toBe("Shape 1");
+    expect(matched.get("b002_body")?.name).toBe("Shape 2");
+  });
+
   test("parseEditablePptxToYaml leaves temp YAML byte-identical when generated PPTX has no edits", async () => {
     const parseEditablePptxToYaml = requireParseEditablePptxToYaml();
     const tempDir = await mkdtemp(join(tmpdir(), "zh-tw-parseback-noop-"));
