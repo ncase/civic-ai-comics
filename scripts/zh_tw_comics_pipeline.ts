@@ -1143,7 +1143,8 @@ export async function parseEditablePptxToYaml(
   const missingShapes: string[] = [];
 
   const fallbackToLegacy = true;
-  let usesLegacyMatch = false;
+  /** Slides parsed via legacy heuristics skip unknown/missing shape checks for that page only. */
+  const legacySlidePageIds = new Set<PageId>();
 
   for (let slideIndex = 0; slideIndex < PAGE_ORDER.length; slideIndex += 1) {
     const pageId = PAGE_ORDER[slideIndex]!;
@@ -1156,13 +1157,14 @@ export async function parseEditablePptxToYaml(
     const expectedIds = expectedIdsByPage.get(pageId) ?? new Set<string>();
     const seenIds = new Set<string>();
     const namedShapeCount = parsedShapes.filter((shape) => expectedIds.has(shape.name)).length;
+    // Legacy when the slide has shapes but none named like YAML box ids (any expected id → strict path, including orphan rejection).
     const pureLegacySlide = parsedShapes.length > 0 && namedShapeCount === 0;
 
     if (pureLegacySlide && fallbackToLegacy) {
-      if (!usesLegacyMatch) {
+      if (legacySlidePageIds.size === 0) {
         console.log(`[Parseback] Fallback to legacy group transform resolution & heuristic matcher.`);
-        usesLegacyMatch = true;
       }
+      legacySlidePageIds.add(pageId);
       const spTree = findNodeWithKey(doc, "p:spTree");
       const resolvedDeskShapes: ParsedPptxShape[] = [];
       traverseShapes(spTree ? (spTree["p:spTree"] as OrderedXmlNode[]) : undefined, null, resolvedDeskShapes);
@@ -1187,13 +1189,17 @@ export async function parseEditablePptxToYaml(
     }
   }
 
-  if (!usesLegacyMatch) {
-    if (unknownShapes.length > 0) {
-      throw new VerificationError(`PPTX contains shapes with no YAML box: ${unknownShapes.join(", ")}`);
-    }
-    if (missingShapes.length > 0) {
-      throw new VerificationError(`PPTX is missing expected YAML-backed text boxes: ${missingShapes.join(", ")}`);
-    }
+  const pageIdFromParsebackEntry = (entry: string): PageId => {
+    const slash = entry.indexOf("/");
+    return (slash >= 0 ? entry.slice(0, slash) : entry) as PageId;
+  };
+  const unknownOnStrictSlides = unknownShapes.filter((entry) => !legacySlidePageIds.has(pageIdFromParsebackEntry(entry)));
+  const missingOnStrictSlides = missingShapes.filter((entry) => !legacySlidePageIds.has(pageIdFromParsebackEntry(entry)));
+  if (unknownOnStrictSlides.length > 0) {
+    throw new VerificationError(`PPTX contains shapes with no YAML box: ${unknownOnStrictSlides.join(", ")}`);
+  }
+  if (missingOnStrictSlides.length > 0) {
+    throw new VerificationError(`PPTX is missing expected YAML-backed text boxes: ${missingOnStrictSlides.join(", ")}`);
   }
 
   const rewritten = rewriteCompactYamlFromPptxUpdates(yamlText, root, updates);
