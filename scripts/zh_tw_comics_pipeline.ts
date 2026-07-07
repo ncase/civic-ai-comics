@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { existsSync } from "node:fs";
-import { copyFile, mkdir, open, readdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, open, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -1403,7 +1403,14 @@ export async function renderComicAssetsFromCanonicalPdf(
 }
 
 export async function renderCoverAssets(textDir = COVER_TEXT_SPEC_DIR, outputRoot = OUTPUT_ROOT): Promise<string[]> {
-  if (existsSync(DEFAULT_ZH_TW_COVER_CANONICAL_PDF)) return renderCoverAssetsFromCanonicalPdf(DEFAULT_ZH_TW_COVER_CANONICAL_PDF, outputRoot);
+  if (existsSync(DEFAULT_ZH_TW_COVER_CANONICAL_PDF)) {
+    const rendered = await renderCoverAssetsFromCanonicalPdf(DEFAULT_ZH_TW_COVER_CANONICAL_PDF, outputRoot);
+    const frontSpec = JSON.parse(await readFile(join(textDir, "Cover.json"), "utf8")) as TextSpec;
+    for (const name of COVER_EXTRA_IMAGE_NAMES) {
+      rendered.push(await renderPage(frontSpec, join(outputRoot, name)));
+    }
+    return rendered;
+  }
   await mkdir(outputRoot, { recursive: true });
   const rendered: string[] = [];
   for (const pageId of COVER_PAGE_ORDER) {
@@ -1571,8 +1578,11 @@ export function sortPdfRenderedPagePaths(paths: string[]): string[] {
   });
 }
 
-async function renderPdfPages(pdfPath: string, outputDir: string, renderDpi: number, prefix: string): Promise<string[]> {
+export async function renderPdfPages(pdfPath: string, outputDir: string, renderDpi: number, prefix: string): Promise<string[]> {
   await mkdir(outputDir, { recursive: true });
+  for (const name of await readdir(outputDir)) {
+    if (name.startsWith(`${prefix}-`) && name.endsWith(".png")) await rm(join(outputDir, name), { force: true });
+  }
   runCommandText(["pdftoppm", "-r", String(renderDpi), "-png", pdfPath, join(outputDir, prefix)]);
   const paths = (await readdir(outputDir))
     .filter((name) => name.startsWith(`${prefix}-`) && name.endsWith(".png"))

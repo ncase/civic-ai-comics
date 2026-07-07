@@ -2610,6 +2610,11 @@ describe("zh-TW translated book cover", () => {
       }
     }
 
+    const coverExtraImageNames = requireCoverPipelineExport<string[]>("COVER_EXTRA_IMAGE_NAMES");
+    for (const extraName of coverExtraImageNames) {
+      expect(existsSync(join(outputRoot, extraName))).toBe(true);
+    }
+
     const renderedCoverBytes = await readFile(join(outputRoot, "Cover.png"));
     expect(renderedCoverBytes).not.toEqual(englishCoverBytes);
   }, 120_000);
@@ -3439,6 +3444,21 @@ describe("zh-TW PDF oracle (canonical Desktop export)", () => {
       "/tmp/page-11.png",
     ]);
   });
+
+  test("renderPdfPages clears stale rendered page rasters before collecting current pages", async () => {
+    const renderPdfPages = requirePdfOracleExport<
+      (pdfPath: string, outputDir: string, renderDpi: number, prefix: string) => Promise<string[]>
+    >("renderPdfPages");
+    const root = await mkdtemp(join(tmpdir(), "zh-tw-pdf-pages-stale-"));
+    const stalePath = join(root, "page-99.png");
+    await writeWhitePng(stalePath, 2, 2);
+
+    const pages = await renderPdfPages(CANONICAL_ZH_TW_EDITABLE_PDF, root, PDF_ORACLE_RENDER_DPI, "page");
+
+    expect(pages).toHaveLength(PAGE_ORDER.length);
+    expect(pages).not.toContain(stalePath);
+    expect(existsSync(stalePath)).toBe(false);
+  }, 120_000);
 
   test("diffPdfOracleRenderedPageLists rejects canonical/generated page-count mismatch before pixel diff", async () => {
     const diffPdfOracleRenderedPageLists = requirePdfOracleExport<
