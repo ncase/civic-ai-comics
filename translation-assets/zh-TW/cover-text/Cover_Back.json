@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "image": "Cover_Back",
+  "template_image": "book-cover/wordless/Cover_Back.png",
+  "output_image": "Cover_Back.png",
+  "target_size": [
+    5748,
+    8000
+  ],
+  "boxes": [
+    {
+      "id": "back_heading",
+      "ocr_type": "title",
+      "font_role": "title",
+      "text": "給出版社夥伴，",
+      "box": [
+        244,
+        1233,
+        5348,
+        1757
+      ],
+      "tight_box": [
+        244,
+        1233,
+        5348,
+        1757
+      ],
+      "font_size": 270,
+      "line_spacing": 300,
+      "color": "#050505",
+      "align": "left"
+    },
+    {
+      "id": "back_body",
+      "ocr_type": "text",
+      "font_role": "body",
+      "text": "這裡會放唐鳳與格林的內容簡介！請注意，這段副標比標題稍微內縮。下方也可以加入推薦語。",
+      "box": [
+        454,
+        1903,
+        4720,
+        3147
+      ],
+      "tight_box": [
+        454,
+        1903,
+        4720,
+        3147
+      ],
+      "font_size": 155,
+      "line_spacing": 205,
+      "color": "#111111",
+      "align": "left"
+    },
+    {
+      "id": "back_quote_one",
+      "ocr_type": "text",
+      "font_role": "body",
+      "text": "「我剛才看見一兆種不同的現實彼此摺疊，像薄薄的金屬片鍛成一把刀。」\n——奇迪・阿納貢耶",
+      "box": [
+        1504,
+        4653,
+        5348,
+        5747
+      ],
+      "tight_box": [
+        1504,
+        4653,
+        5348,
+        5747
+      ],
+      "font_size": 135,
+      "line_spacing": 180,
+      "color": "#111111",
+      "align": "center",
+      "emphasis": [
+        {
+          "text": "奇迪・阿納貢耶",
+          "bold": true
+        }
+      ]
+    },
+    {
+      "id": "back_quote_two",
+      "ocr_type": "text",
+      "font_role": "body",
+      "text": "「對對對，就是那把時間之刀。」\n——麥可",
+      "box": [
+        2504,
+        6103,
+        5348,
+        6897
+      ],
+      "tight_box": [
+        2504,
+        6103,
+        5348,
+        6897
+      ],
+      "font_size": 145,
+      "line_spacing": 190,
+      "color": "#111111",
+      "align": "center",
+      "emphasis": [
+        {
+          "text": "麥可",
+          "bold": true
+        }
+      ]
+    }
+  ]
+}

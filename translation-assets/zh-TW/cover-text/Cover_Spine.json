@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "image": "Cover_Spine",
+  "template_image": "book-cover/wordless/Cover_Spine.png",
+  "output_image": "Cover_Spine.png",
+  "target_size": [
+    766,
+    8000
+  ],
+  "boxes": [
+    {
+      "id": "spine_title",
+      "ocr_type": "title",
+      "font_role": "title",
+      "text": "仁\n工\n智\n慧",
+      "box": [
+        94,
+        1053,
+        674,
+        5697
+      ],
+      "tight_box": [
+        94,
+        1053,
+        674,
+        5697
+      ],
+      "font_size": 430,
+      "line_spacing": 480,
+      "color": "#050505",
+      "align": "center"
+    },
+    {
+      "id": "spine_authors",
+      "ocr_type": "text",
+      "font_role": "title",
+      "text": "唐\n鳳\n、\n格\n林",
+      "box": [
+        84,
+        5903,
+        684,
+        6847
+      ],
+      "tight_box": [
+        84,
+        5903,
+        684,
+        6847
+      ],
+      "font_size": 150,
+      "line_spacing": 10,
+      "color": "#050505",
+      "align": "center"
+    }
+  ]
+}

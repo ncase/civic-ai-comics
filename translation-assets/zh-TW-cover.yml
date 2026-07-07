@@ -1,0 +1,121 @@
+schema: 1
+pages:
+  Cover:
+    template_image: book-cover/wordless/Cover.png
+    output_image: Cover.png
+    target_size: [5748, 8000]
+    boxes:
+      - id: front_authors
+        type: text
+        role: body
+        text: |-
+          唐鳳 & Caroline Emmer De Albuquerque Green
+        box: [754, 523, 4998, 977]
+        font: 140
+        line: 150
+        color: "#111111"
+        align: center
+      - id: front_title
+        type: title
+        role: title
+        text: 仁工智慧
+        box: [824, 1378, 4918, 3292]
+        font: 760
+        line: 790
+        color: "#050505"
+        align: center
+      - id: front_subtitle
+        type: title
+        role: title
+        text: |-
+          讓 AI 與人類社群
+          共同繁榮
+        box: [1104, 3903, 4648, 5847]
+        font: 265
+        line: 315
+        color: "#111111"
+        align: center
+  Cover_Back:
+    template_image: book-cover/wordless/Cover_Back.png
+    output_image: Cover_Back.png
+    target_size: [5748, 8000]
+    boxes:
+      - id: back_heading
+        type: title
+        role: title
+        text: 給出版社夥伴，
+        box: [244, 1233, 5348, 1757]
+        font: 270
+        line: 300
+        color: "#050505"
+        align: left
+      - id: back_body
+        type: text
+        role: body
+        text: |-
+          這裡會放唐鳳與格林的內容簡介！請注意，這段副標比標題稍微內縮。下方也可以加入推薦語。
+        box: [454, 1903, 4720, 3147]
+        font: 155
+        line: 205
+        color: "#111111"
+        align: left
+      - id: back_quote_one
+        type: text
+        role: body
+        text: |-
+          「我剛才看見一兆種不同的現實彼此摺疊，像薄薄的金屬片鍛成一把刀。」
+          ——奇迪・阿納貢耶
+        box: [1504, 4653, 5348, 5747]
+        font: 135
+        line: 180
+        color: "#111111"
+        align: center
+        emphasis:
+          - text: 奇迪・阿納貢耶
+            bold: true
+      - id: back_quote_two
+        type: text
+        role: body
+        text: |-
+          「對對對，就是那把時間之刀。」
+          ——麥可
+        box: [2504, 6103, 5348, 6897]
+        font: 145
+        line: 190
+        color: "#111111"
+        align: center
+        emphasis:
+          - text: 麥可
+            bold: true
+  Cover_Spine:
+    template_image: book-cover/wordless/Cover_Spine.png
+    output_image: Cover_Spine.png
+    target_size: [766, 8000]
+    boxes:
+      - id: spine_title
+        type: title
+        role: title
+        text: |-
+          仁
+          工
+          智
+          慧
+        box: [94, 1053, 674, 5697]
+        font: 430
+        line: 480
+        color: "#050505"
+        align: center
+      - id: spine_authors
+        type: text
+        role: title
+        text: |-
+          唐
+          鳳
+          、
+          格
+          林
+        box: [84, 5903, 684, 6847]
+        font: 150
+        line: 10
+        color: "#050505"
+        align: center

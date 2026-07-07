@@ -6,3 +6,12 @@
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+docs/
+node_modules/
+comics-zh-TW/zh-TW-editable.pptx
+comics-zh-TW/zh-TW-cover-editable.pptx
+comics-zh-TW/web/
+translation-assets/zh-TW/ocr/
+translation-assets/zh-TW/review/
+translation-assets/zh-TW/text/

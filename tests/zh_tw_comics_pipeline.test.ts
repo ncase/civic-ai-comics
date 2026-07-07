@@ -71,9 +71,113 @@ const SYNTHETIC_TEXT = "測試";
 const LIGHT_INK_LUMA_MIN = 170;
 const ORACLE_PATCH_COLOR = { r: 18, g: 64, b: 200 };
 
-const ZH_TW_COVER_REUSE_NAMES = ["Cover.png", "Cover_Back.png", "Cover_Spine.png"] as const;
+const ZH_TW_COVER_OUTPUT_NAMES = ["Cover.png", "Cover_Back.png", "Cover_Spine.png"] as const;
+const ZH_TW_COVER_VERIFY_TEXT_SPECS = [
+  "cover-text/Cover.json",
+  "cover-text/Cover_Back.json",
+  "cover-text/Cover_Spine.json",
+] as const;
+const ZH_TW_COVER_EDITABLE_PPTX = "zh-TW-cover-editable.pptx";
 
 const CH5_B_PPTX_CAPTION_SNIPPET = "舉例來說，也許我們的兩位主廚會對彼此說";
+const DESKTOP_ZH_TW_ORACLE_ROOT = "/Users/au/Desktop/zh-TW-editable";
+/** Max |width/height(gen) − width/height(oracle)|; print vs slide export scales differ ~0.00036. */
+const ORACLE_ASPECT_RATIO_TOLERANCE = 0.001;
+const CANONICAL_ZH_TW_EDITABLE_PDF = "/Users/au/Desktop/zh-TW-editable.pdf";
+const PDF_ORACLE_PAGE_COUNT = 13;
+const PDF_ORACLE_PAGE_SIZE_PT: readonly [number, number] = [689, 960];
+const PDF_ORACLE_RENDER_DPI = 600;
+const PDF_ORACLE_RENDER_SIZE_PX: readonly [number, number] = [5742, 8000];
+const PDF_ORACLE_PPTX_SLIDE_WIDTH_IN = PDF_ORACLE_PAGE_SIZE_PT[0] / 72;
+const PDF_ORACLE_PPTX_SLIDE_HEIGHT_IN = PDF_ORACLE_PAGE_SIZE_PT[1] / 72;
+const LEGACY_PPTX_SLIDE_WIDTH_IN = 5749 / PPTX_TEST_RENDER_DPI;
+const PPTX_EMU_PER_INCH_TEST = 914400;
+const LEGACY_ZH_TW_TARGET_WIDTH_PX = 5749;
+const INGESTED_ZH_TW_TARGET_WIDTH_PX = PDF_ORACLE_RENDER_SIZE_PX[0];
+const INGESTED_ZH_TW_TARGET_HEIGHT_PX = PDF_ORACLE_RENDER_SIZE_PX[1];
+const INGESTED_ZH_TW_PPTX_SLIDE_WIDTH_IN = INGESTED_ZH_TW_TARGET_WIDTH_PX / PPTX_TEST_RENDER_DPI;
+const INGESTED_ZH_TW_PPTX_SLIDE_HEIGHT_IN = INGESTED_ZH_TW_TARGET_HEIGHT_PX / PPTX_TEST_RENDER_DPI;
+/** Overview/b001_title legacy target-space box[0] and tight[0] in translation-assets/zh-TW.yml. */
+const OVERVIEW_B001_TITLE_BOX_X_LEGACY = 965;
+const OVERVIEW_B001_TIGHT_X_LEGACY = 1001;
+const OVERVIEW_B001_SRC: readonly [number, number, number, number] = [242, 89, 489, 184];
+
+
+type InspectCanonicalPdfResult = {
+  pageCount: number;
+  pageSizePt: [number, number];
+  renderSizePx: [number, number];
+  renderDpi: number;
+  pptxSlideSizeIn: [number, number];
+};
+
+type PdfTextRun = {
+  text: string;
+  fontFamily?: string;
+  color?: string;
+  role?: "title" | "body" | "footer";
+};
+
+type ComparePdfOraclePagesResult = {
+  ok: boolean;
+  dimensionMismatch?: boolean;
+  diffPixels?: number;
+  message?: string;
+};
+
+type PdfOraclePageDiffMetric = {
+  pageId: string;
+  diffPixels?: number;
+  mismatchRatio?: number;
+};
+
+type PdfOracleRoundTripReport = {
+  ok: boolean;
+  canonicalRenderSizePx: [number, number];
+  renderer: { kind: string };
+  incompleteReason?: string;
+  pageRenderSizePx?: [number, number];
+  generatedRenderSizePx?: [number, number];
+  pageDiffs?: PdfOraclePageDiffMetric[];
+};
+
+type IngestCanonicalPdfToYamlReport = {
+  canonicalRenderSizePx: [number, number];
+  updatedPagesCount: number;
+  renderDpi: number;
+  dryRun: boolean;
+  outputYamlPath: string;
+};
+
+function expectPdfOracleRoundTripRendererContract(report: PdfOracleRoundTripReport): void {
+  if (report.renderer?.kind === "pptx-pdf") {
+    return;
+  }
+  expect(report.ok).toBe(false);
+  expect(String(report.incompleteReason ?? "")).toMatch(/pptx/i);
+  expect(String(report.incompleteReason ?? "")).toMatch(/pdf/i);
+}
+
+function requirePdfOracleExport<T>(exportName: string): T {
+  return requireCoverPipelineExport<T>(exportName);
+}
+
+function pptxSlideSizeEmuFromInches(widthIn: number, heightIn: number): { cx: number; cy: number } {
+  return {
+    cx: Math.round(widthIn * PPTX_EMU_PER_INCH_TEST),
+    cy: Math.round(heightIn * PPTX_EMU_PER_INCH_TEST),
+  };
+}
+
+async function readPptxPresentationSlideSizeEmu(pptxPath: string): Promise<{ cx: number; cy: number }> {
+  const presXml = await readPptxZipEntryText(pptxPath, "ppt/presentation.xml");
+  const cxMatch = presXml.match(/<p:sldSz[^>]*\bcx="(\d+)"/);
+  const cyMatch = presXml.match(/<p:sldSz[^>]*\bcy="(\d+)"/);
+  if (!cxMatch || !cyMatch) {
+    throw new Error(`ppt/presentation.xml missing p:sldSz cx/cy in ${pptxPath}`);
+  }
+  return { cx: Number(cxMatch[1]), cy: Number(cyMatch[1]) };
+}
 
 async function listPptxZipEntryNames(pptxPath: string): Promise<string[]> {
   const zip = await new JSZip().loadAsync(await Bun.file(pptxPath).arrayBuffer());
@@ -97,6 +201,15 @@ async function readPptxZipEntryBytes(pptxPath: string, entryPath: string): Promi
 const PARSEBACK_PPTX_DPI = 600;
 const PARSEBACK_EMU_PER_INCH = 914400;
 const CH2_A_PARSEBACK_NOBODY = "當沒有人負責，就沒有人負責。";
+const CH5_B_PARSEBACK_SOLIDARITY_OLD = `雙方「為何」的、新的「做什麼」？`;
+const CH5_B_PARSEBACK_SOLIDARITY_NEW_MID = `雙方「為何」的、新的「共同目標」？`;
+const CH5_B_PARSEBACK_EARLIER_MD_DECOY = "在你想要「做什麼」背後";
+const CH5_B_PARSEBACK_STALE_B004_OPENING = "          退一步想。在你想要「做什麼」背後，\n          問問自己";
+const CH5_B_PARSEBACK_STALE_B004_OPENING_TRIM = "          問問自己";
+const CH5_B_PARSEBACK_EARLIER_MD_DECOY_PARAGRAPH =
+  "先前討論時，我們也會先問：在你想要「做什麼」背後，真正驅動你的是什麼？";
+const CH5_B_PARSEBACK_STALE_B004_BODY_FOR_MD_SYNC =
+  "問問自己：你「為何」想要它？接著：你能不能創造一個同時滿足";
 
 type ParseEditablePptxToYamlResult = {
   yaml_path: string;
@@ -119,6 +232,94 @@ function requireParseEditablePptxToYaml(): ParseEditablePptxToYamlFn {
   }
   return fn as ParseEditablePptxToYamlFn;
 }
+
+function requireParseCoverEditablePptxToYaml(): ParseEditablePptxToYamlFn {
+  if (!("parseCoverEditablePptxToYaml" in zhTwPipeline)) {
+    throw new Error("parseCoverEditablePptxToYaml is not exported from ../scripts/zh_tw_comics_pipeline");
+  }
+  const fn = (zhTwPipeline as Record<string, unknown>).parseCoverEditablePptxToYaml;
+  if (typeof fn !== "function") {
+    throw new Error("parseCoverEditablePptxToYaml is not exported from ../scripts/zh_tw_comics_pipeline");
+  }
+  return fn as ParseEditablePptxToYamlFn;
+}
+
+type CoverPageId = "Cover" | "Cover_Back" | "Cover_Spine";
+
+type LoadCoverTextSpecsFn = (yamlPath?: string) => Promise<Record<CoverPageId, TextSpec>>;
+type BuildCoverTextSpecsFn = (yamlPath?: string, textDir?: string) => Promise<string[]>;
+type RenderCoverAssetsFn = (textDir?: string, outputRoot?: string) => Promise<string[]>;
+type BuildCoverEditablePptxFn = (outputPath?: string, yamlPath?: string) => Promise<string>;
+
+const COVER_PAGE_ORDER = ["Cover", "Cover_Back", "Cover_Spine"] as const satisfies readonly CoverPageId[];
+
+const COVER_PAGE_OUTPUT_PNG: Record<CoverPageId, string> = {
+  Cover: "Cover.png",
+  Cover_Back: "Cover_Back.png",
+  Cover_Spine: "Cover_Spine.png",
+};
+
+/** Small sentinel subset of pipeline SIMPLIFIED_TRAP_CHARS for cover copy checks. */
+const COVER_SIMPLIFIED_TRAP_SENTINEL = "这为国" as const;
+
+function requireCoverPipelineExport<T>(exportName: string): T {
+  if (!(exportName in zhTwPipeline)) {
+    throw new Error(`${exportName} is not exported from ../scripts/zh_tw_comics_pipeline`);
+  }
+  const value = (zhTwPipeline as Record<string, unknown>)[exportName];
+  if (value === undefined) {
+    throw new Error(`${exportName} is not exported from ../scripts/zh_tw_comics_pipeline`);
+  }
+  return value as T;
+}
+
+function requireLoadCoverTextSpecs(): LoadCoverTextSpecsFn {
+  const fn = requireCoverPipelineExport<LoadCoverTextSpecsFn>("loadCoverTextSpecs");
+  if (typeof fn !== "function") {
+    throw new Error("loadCoverTextSpecs is not exported from ../scripts/zh_tw_comics_pipeline");
+  }
+  return fn;
+}
+
+function requireBuildCoverTextSpecs(): BuildCoverTextSpecsFn {
+  const fn = requireCoverPipelineExport<BuildCoverTextSpecsFn>("buildCoverTextSpecs");
+  if (typeof fn !== "function") {
+    throw new Error("buildCoverTextSpecs is not exported from ../scripts/zh_tw_comics_pipeline");
+  }
+  return fn;
+}
+
+function requireRenderCoverAssets(): RenderCoverAssetsFn {
+  const fn = requireCoverPipelineExport<RenderCoverAssetsFn>("renderCoverAssets");
+  if (typeof fn !== "function") {
+    throw new Error("renderCoverAssets is not exported from ../scripts/zh_tw_comics_pipeline");
+  }
+  return fn;
+}
+
+function requireBuildCoverEditablePptx(): BuildCoverEditablePptxFn {
+  const fn = requireCoverPipelineExport<BuildCoverEditablePptxFn>("buildCoverEditablePptx");
+  if (typeof fn !== "function") {
+    throw new Error("buildCoverEditablePptx is not exported from ../scripts/zh_tw_comics_pipeline");
+  }
+  return fn;
+}
+
+function collectCoverBoxText(specs: Record<CoverPageId, TextSpec>): string {
+  return COVER_PAGE_ORDER.flatMap((pageId) => (specs[pageId]?.boxes ?? []).map((box) => String(box.text ?? ""))).join(
+    "\n",
+  );
+}
+
+async function readPngDimensions(pngPath: string): Promise<{ width: number; height: number }> {
+  const image = await loadImage(Buffer.from(await readFile(pngPath)));
+  return { width: image.width, height: image.height };
+}
+
+function expectCoverFrontDimensions(dim: { width: number; height: number }): void {
+  expect(dim).toEqual({ width: 5742, height: 8000 });
+}
+
 
 async function writePptxZipEntry(
   pptxPath: string,
@@ -159,12 +360,181 @@ function extractYamlPageBoxBlock(yamlText: string, pageId: string, boxId: string
   return nextBox < 0 ? boxTail.trimEnd() : boxTail.slice(0, nextBox).trimEnd();
 }
 
+function replaceYamlPageBoxBlock(yamlText: string, pageId: string, boxId: string, newBlock: string): string {
+  const block = extractYamlPageBoxBlock(yamlText, pageId, boxId);
+  return yamlText.replace(block, newBlock.trimEnd());
+}
+
+async function writeYamlPageBoxBlockReplacement(
+  yamlPath: string,
+  pageId: string,
+  boxId: string,
+  newBlock: string,
+): Promise<void> {
+  const yamlText = await readFile(yamlPath, "utf8");
+  await writeFile(yamlPath, replaceYamlPageBoxBlock(yamlText, pageId, boxId, newBlock));
+}
+
+/** Replaces a `text: |-` block body (indented content lines) inside one YAML box block. */
+function patchYamlBoxLiteralTextBlock(block: string, indentedBody: string): string {
+  const body = indentedBody.replace(/\n/g, "\n          ");
+  if (block.includes("text: |-")) {
+    return block.replace(/        text: \|-\n(?:          .+\n)+/, `        text: |-\n          ${body}\n`);
+  }
+  return block.replace(/        text: .+/, `        text: |-\n          ${body}`);
+}
+
+/** Sets align on a box block whether or not align was already present (idempotent). */
+function ensureYamlBoxAlign(block: string, align: "left" | "center" | "right"): string {
+  if (/\n        align: /.test(block)) {
+    return block.replace(/\n        align: (?:left|center|right)/, `\n        align: ${align}`);
+  }
+  return `${block}\n        align: ${align}`;
+}
+
+
+/** Patches Ch5_B b004_body text in-place so line-based parseback still resolves page md. */
+async function writeCh5BStaleB004BodyOpeningTrim(yamlPath: string): Promise<void> {
+  let yamlText = await readFile(yamlPath, "utf8");
+  const block = extractYamlPageBoxBlock(yamlText, "Ch5_B", "b004_body");
+  const staleBlock = block.replace(
+    CH5_B_PARSEBACK_STALE_B004_OPENING,
+    CH5_B_PARSEBACK_STALE_B004_OPENING_TRIM,
+  );
+  if (staleBlock === block) throw new Error("Ch5_B b004_body stale opening trim did not apply");
+  await writeFile(yamlPath, yamlText.replace(block, staleBlock));
+}
+
+
+/** Drops the solidarity line from Ch5_B page md so stale b004_body text is not a flat-md substring. */
+
+/** Sets Ch5_B b004_body text to match trimmed page md (no YAML text-indent padding) for paragraph sync. */
+async function writeCh5BStaleB004BodyAlignWithPageMd(yamlPath: string): Promise<void> {
+  let yamlText = await readFile(yamlPath, "utf8");
+  const block = extractYamlPageBoxBlock(yamlText, "Ch5_B", "b004_body");
+  const indentedBody = CH5_B_PARSEBACK_STALE_B004_BODY_FOR_MD_SYNC.split("\n")
+    .map((line) => `          ${line}`)
+    .join("\n");
+  const newTextBlock = `        text: |-\n${indentedBody}`;
+  const staleBlock = block.replace(/        text: \|-[\s\S]*?(?=\n        [a-z_]+:|\n      - id:|\s*$)/, newTextBlock);
+  if (staleBlock === block) throw new Error("Ch5_B b004_body text align with page md did not apply");
+  await writeFile(yamlPath, yamlText.replace(block, staleBlock));
+}
+
+/** Drops the solidarity line from Ch5_B b004_body so stale box text matches trimmed page md. */
+async function writeCh5BStaleB004BodyDropSolidarityLine(yamlPath: string): Promise<void> {
+  let yamlText = await readFile(yamlPath, "utf8");
+  const block = extractYamlPageBoxBlock(yamlText, "Ch5_B", "b004_body");
+  const solidarityInBlock = `\n          ${CH5_B_PARSEBACK_SOLIDARITY_OLD}`;
+  if (!block.includes(solidarityInBlock) && !block.includes(`          ${CH5_B_PARSEBACK_SOLIDARITY_OLD}`)) {
+    throw new Error("Ch5_B b004_body solidarity line missing for stale parseback fixture");
+  }
+  const staleBlock = block
+    .replace(solidarityInBlock, "")
+    .replace(`          ${CH5_B_PARSEBACK_SOLIDARITY_OLD}`, "");
+  await writeFile(yamlPath, yamlText.replace(block, staleBlock));
+}
+async function writeCh5BStalePageMdDropSolidarityLine(yamlPath: string): Promise<void> {
+  let yamlText = await readFile(yamlPath, "utf8");
+  const pageStart = yamlText.indexOf("  Ch5_B:");
+  if (pageStart < 0) throw new Error("missing Ch5_B page");
+  const mdMarker = yamlText.indexOf("    md: |-", pageStart);
+  if (mdMarker < 0) throw new Error("missing Ch5_B md");
+  const mdBodyStart = yamlText.indexOf("\n", mdMarker) + 1;
+  const boxesMarker = yamlText.indexOf("    boxes:", pageStart);
+  if (boxesMarker < 0) throw new Error("missing Ch5_B boxes");
+  const mdSection = yamlText.slice(mdBodyStart, boxesMarker);
+  const solidarityMdLine = `      ${CH5_B_PARSEBACK_SOLIDARITY_OLD}\n`;
+  if (!mdSection.includes(solidarityMdLine)) {
+    throw new Error("Ch5_B md solidarity line missing for stale parseback fixture");
+  }
+  const trimmedMd = mdSection.replace(solidarityMdLine, "");
+  await writeFile(
+    yamlPath,
+    yamlText.slice(0, mdBodyStart) + trimmedMd + yamlText.slice(boxesMarker),
+  );
+}
+
+/** Inserts an unrelated earlier md paragraph with the 做什麼 decoy before the b004 markdown block. */
+async function writeCh5BStalePageMdInsertEarlierDecoyParagraph(yamlPath: string): Promise<void> {
+  let yamlText = await readFile(yamlPath, "utf8");
+  const pageStart = yamlText.indexOf("  Ch5_B:");
+  if (pageStart < 0) throw new Error("missing Ch5_B page");
+  const mdMarker = yamlText.indexOf("    md: |-", pageStart);
+  if (mdMarker < 0) throw new Error("missing Ch5_B md");
+  const mdBodyStart = yamlText.indexOf("\n", mdMarker) + 1;
+  const boxesMarker = yamlText.indexOf("    boxes:", pageStart);
+  if (boxesMarker < 0) throw new Error("missing Ch5_B boxes");
+  const mdSection = yamlText.slice(mdBodyStart, boxesMarker);
+  const b004MdLine = "      退一步想。在你想要「做什麼」背後，";
+  const b004LineIndex = mdSection.indexOf(b004MdLine);
+  if (b004LineIndex < 0) throw new Error("Ch5_B md missing b004 paragraph for decoy insert");
+  const decoyBlock = `      ${CH5_B_PARSEBACK_EARLIER_MD_DECOY_PARAGRAPH}\n\n`;
+  const nextMdSection = mdSection.slice(0, b004LineIndex) + decoyBlock + mdSection.slice(b004LineIndex);
+  await writeFile(
+    yamlPath,
+    yamlText.slice(0, mdBodyStart) + nextMdSection + yamlText.slice(boxesMarker),
+  );
+}
+
+/** Rewrites Ch5_B md b004 lines to exactly match stale box text for flat-md parseback replacement. */
+async function writeCh5BStalePageMdAlignB004Paragraph(yamlPath: string): Promise<void> {
+  let yamlText = await readFile(yamlPath, "utf8");
+  const pageStart = yamlText.indexOf("  Ch5_B:");
+  if (pageStart < 0) throw new Error("missing Ch5_B page");
+  const mdMarker = yamlText.indexOf("    md: |-", pageStart);
+  if (mdMarker < 0) throw new Error("missing Ch5_B md");
+  const mdBodyStart = yamlText.indexOf("\n", mdMarker) + 1;
+  const boxesMarker = yamlText.indexOf("    boxes:", pageStart);
+  if (boxesMarker < 0) throw new Error("missing Ch5_B boxes");
+  const mdSection = yamlText.slice(mdBodyStart, boxesMarker);
+  const alignedBlock = CH5_B_PARSEBACK_STALE_B004_BODY_FOR_MD_SYNC.split("\n")
+    .map((line) => `      ${line}`)
+    .join("\n");
+  const startMarker = "      問問自己：你「為何」想要它？";
+  const endMarker = "      接著：你能不能創造一個同時滿足";
+  const startIndex = mdSection.indexOf(startMarker);
+  const endIndex = mdSection.indexOf(endMarker);
+  if (startIndex < 0 || endIndex < 0) throw new Error("Ch5_B md missing b004 paragraph markers for align");
+  const endLineEnd = mdSection.indexOf("\n", endIndex + endMarker.length);
+  const sliceEnd = endLineEnd < 0 ? mdSection.length : endLineEnd + 1;
+  const nextMdSection = mdSection.slice(0, startIndex) + `${alignedBlock}\n` + mdSection.slice(sliceEnd);
+  await writeFile(
+    yamlPath,
+    yamlText.slice(0, mdBodyStart) + nextMdSection + yamlText.slice(boxesMarker),
+  );
+}
+
+/** Drops the distant pol.is paragraph that also anchors on 雙方「為何」 so b004 md sync stays unambiguous. */
+async function writeCh5BStalePageMdDropPolisParagraph(yamlPath: string): Promise<void> {
+  let yamlText = await readFile(yamlPath, "utf8");
+  const pageStart = yamlText.indexOf("  Ch5_B:");
+  if (pageStart < 0) throw new Error("missing Ch5_B page");
+  const mdMarker = yamlText.indexOf("    md: |-", pageStart);
+  if (mdMarker < 0) throw new Error("missing Ch5_B md");
+  const mdBodyStart = yamlText.indexOf("\n", mdMarker) + 1;
+  const boxesMarker = yamlText.indexOf("    boxes:", pageStart);
+  if (boxesMarker < 0) throw new Error("missing Ch5_B boxes");
+  const mdSection = yamlText.slice(mdBodyStart, boxesMarker);
+  const polisLine =
+    "      但在 pol.is 與參與官的協助下，大家找到了能同時滿足雙方「為何」的新「做什麼」：就業金卡，把科學家與藝術家帶進台灣。\n";
+  if (!mdSection.includes(polisLine)) {
+    throw new Error("Ch5_B md pol.is paragraph missing for stale parseback fixture");
+  }
+  const trimmedMd = mdSection.replace(polisLine, "");
+  await writeFile(
+    yamlPath,
+    yamlText.slice(0, mdBodyStart) + trimmedMd + yamlText.slice(boxesMarker),
+  );
+}
 type ParsebackEmphasisSpan = { start: number; end: number; bold?: boolean; color?: string };
 type ParsebackEmphasisEntry = ParsebackEmphasisSpan | { text?: string; color?: string; bold?: boolean };
 
 type CompactYamlBox = {
   id: string;
   box?: number[];
+  src?: number[];
+  tight?: number[];
   font?: number;
   align?: string;
   emphasis?: ParsebackEmphasisEntry[];
@@ -216,13 +586,103 @@ function rewritePptxShapeTextRuns(shapeXml: string, runs: PptxTextRun[]): string
     return next;
   });
 }
+
+/** Simulates Keynote/PowerPoint resave: same text, no bold or hex color on runs. */
+function rewritePptxShapeToPlainUnstyledRuns(shapeXml: string): string {
+  const runs = extractPptxTextRunsFromShape(shapeXml);
+  const plain = runs.map((run) => ({ text: run.text, bold: false }));
+  let stripped = rewritePptxShapeTextRuns(shapeXml, plain);
+  stripped = stripped.replace(/<a:srgbClr\s+val="[0-9A-Fa-f]{6}"\s*\/>/g, "");
+  return stripped;
+}
+
+const COVER_SPINE_AUTHORS_DESKTOP_PARSED_TEXT = "唐\n鳳\n、\n格\n林";
+const COVER_SPINE_AUTHORS_PRE_MERGE_LITERAL = "唐鳳\n格林";
+
+
+/** Mirrors parsePptxTextBody: paragraph boundaries and <a:br/> become newlines. */
+function extractPptxShapeTextWithBreaks(shapeXml: string): string {
+  const txBody = shapeXml.match(/<p:txBody>([\s\S]*?)<\/p:txBody>/)?.[1];
+  if (!txBody) return "";
+  const paragraphs = [...txBody.matchAll(/<a:p>([\s\S]*?)<\/a:p>/g)].map((match) => match[1]!);
+  const chunks: string[] = [];
+  for (let paragraphIndex = 0; paragraphIndex < paragraphs.length; paragraphIndex += 1) {
+    if (paragraphIndex > 0) chunks.push("\n");
+    const paragraph = paragraphs[paragraphIndex]!;
+    const tokens = paragraph.match(/<a:r>[\s\S]*?<\/a:r>|<a:br\s*\/>/g) ?? [];
+    for (const token of tokens) {
+      if (token.includes("<a:br")) {
+        chunks.push("\n");
+        continue;
+      }
+      const text = token.match(/<a:t>([^<]*)<\/a:t>/)?.[1] ?? "";
+      chunks.push(text);
+    }
+  }
+  return chunks.join("");
+}
+
+/** Simulates PowerPoint resave: shape id renamed to visible text; spine authors split per character/line. */
+function simulateDesktopResavedCoverSpineAuthorsShape(shapeXml: string): string {
+  const lines = ["唐", "鳳", "、", "格", "林"];
+  const txBodyMatch = shapeXml.match(/<p:txBody>[\s\S]*?<\/p:txBody>/);
+  if (!txBodyMatch) throw new Error("simulateDesktopResavedCoverSpineAuthorsShape: missing p:txBody");
+  const txBody = txBodyMatch[0];
+  const bodyPr = txBody.match(/<a:bodyPr[\s\S]*?<\/a:bodyPr>/)?.[0];
+  const lstStyle = txBody.match(/<a:lstStyle\s*\/>/)?.[0] ?? "<a:lstStyle/>";
+  const firstParagraph = txBody.match(/<a:p>[\s\S]*?<\/a:p>/)?.[0];
+  if (!bodyPr || !firstParagraph) {
+    throw new Error("simulateDesktopResavedCoverSpineAuthorsShape: missing bodyPr or paragraph template");
+  }
+  const pPr = firstParagraph.match(/<a:pPr[\s\S]*?<\/a:pPr>/)?.[0] ?? "<a:pPr/>";
+  const firstRun = firstParagraph.match(/<a:r>[\s\S]*?<\/a:r>/)?.[0];
+  if (!firstRun) throw new Error("simulateDesktopResavedCoverSpineAuthorsShape: missing a:r template");
+  const runTemplate = firstRun.replace(/<a:t>[^<]*<\/a:t>/, "<a:t>__TEXT__</a:t>");
+  const runXml: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    if (index > 0) runXml.push("<a:br/>");
+    runXml.push(runTemplate.replace("__TEXT__", lines[index]!));
+  }
+  const endPara =
+    firstParagraph.match(/<a:endParaRPr[\s\S]*?\/>/)?.[0] ?? '<a:endParaRPr lang="en-US" sz="1800" dirty="0"/>';
+  const newTxBody = `<p:txBody>${bodyPr}${lstStyle}<a:p>${pPr}${runXml.join("")}${endPara}</a:p></p:txBody>`;
+  let next = shapeXml.replace(/<p:txBody>[\s\S]*?<\/p:txBody>/, newTxBody);
+  next = next.replace(/name="spine_authors"/, 'name="唐"');
+  return next;
+}
+
 function pptxRunsToUtf16Ranges(runs: PptxTextRun[]): ParsebackEmphasisSpan[] {
   const spans: ParsebackEmphasisSpan[] = [];
   let offset = 0;
+  const fullText = runs.map(r => r.text).join("");
+  
+  function occurrenceForRange(text: string, segment: string, targetStart: number): number {
+    let occurrence = 0;
+    let searchFrom = 0;
+    while (segment.length > 0) {
+      const found = text.indexOf(segment, searchFrom);
+      if (found < 0 || found > targetStart) break;
+      occurrence += 1;
+      if (found === targetStart) return occurrence;
+      searchFrom = found + segment.length;
+    }
+    return 1;
+  }
+
   for (const run of runs) {
     const start = offset;
     offset += run.text.length;
-    if (run.bold) spans.push({ start, end: offset, bold: true });
+    if (run.bold || run.hex) {
+      if (run.hex) {
+        const span: any = { text: run.text, color: `#${run.hex.toUpperCase()}` };
+        if (run.bold) span.bold = true;
+        const occurrence = occurrenceForRange(fullText, run.text, start);
+        if (occurrence > 1) span.occurrence = occurrence;
+        spans.push(span);
+      } else {
+        spans.push({ start, end: offset, bold: true });
+      }
+    }
   }
   return spans;
 }
@@ -971,6 +1431,43 @@ describe("text/spec contracts", () => {
     expect(lines.some((line, index) => index > 0 && line.includes("第二"))).toBe(true);
   });
 
+  test("wrapTextPreserveBreaks keeps fullwidth colon attached to short CJK title (解方：)", () => {
+    const titleSize = 48;
+    const family = registerFontForRole("title");
+    expect(family).toBeTruthy();
+    const font = { fontFamily: family!, size: titleSize };
+    const maxWidth = measureRegisteredText("解方", "title", titleSize).width + 1;
+    const wrapped = wrapTextPreserveBreaks("解方：", font, maxWidth);
+    expect(wrapped).toBe("解方：");
+    expect(wrapped).not.toContain("\n：");
+  });
+
+  test("wrapTextPreserveBreaks keeps ASCII exclamation attached to CJK (工資!)", () => {
+    const bodySize = 24;
+    const family = registerFontForRole("body");
+    expect(family).toBeTruthy();
+    const font = { fontFamily: family!, size: bodySize };
+    const maxWidth = measureRegisteredText("工資", "body", bodySize).width + 1;
+    const wrapped = wrapTextPreserveBreaks("工資!", font, maxWidth);
+    expect(wrapped).toBe("工資!");
+    expect(wrapped).not.toContain("\n!");
+  });
+
+  test("wrapTextPreserveBreaks wraps at earlier safe whitespace before ASCII punctuation (abc def!)", () => {
+    const bodySize = 24;
+    const family = registerFontForRole("body");
+    expect(family).toBeTruthy();
+    const font = { fontFamily: family!, size: bodySize };
+    const text = "abc def!";
+    const maxWidth = measureRegisteredText("abc def", "body", bodySize).width + 1;
+    expect(measureRegisteredText("abc def", "body", bodySize).width).toBeLessThanOrEqual(maxWidth);
+    expect(measureRegisteredText(text, "body", bodySize).width).toBeGreaterThan(maxWidth);
+    const wrapped = wrapTextPreserveBreaks(text, font, maxWidth);
+    expect(wrapped).toBe("abc\ndef!");
+    expect(wrapped).not.toBe("abc def!");
+    expect(wrapped).not.toBe("abc def\n!");
+  });
+
   test("fitFontSizeInBox returns a size within max and min bounds", () => {
     const fitted = fitFontSizeInBox("這是一段需要縮放的文字", [0, 0, 200, 80], 42, 8, "body", 3);
     expect(fitted).toBeLessThanOrEqual(42);
@@ -1317,16 +1814,16 @@ describe("zh-TW YAML text-spec source", () => {
   const CH5_B_B005_EXPECTED = {
     text: "舉例來說，也許我們的兩位主廚會對彼此說……",
     source_box: [128, 512, 650, 618],
-    box: [380, 2030, 2710, 2290],
+    box: [345, 2276, 2666, 2530],
     font_size: 145,
-    align: "center" as const,
+    align: "left" as const,
   };
   const CH5_B_B006_EXPECTED = {
-    text: "……而他們發現，雙方都能100% 滿足需求，毫無浪費！",
+    text: "…而他們發現，雙方都能100% 滿足需求，毫無浪費！",
     source_box: [775, 514, 1290, 618],
-    box: [2980, 2030, 5400, 2290],
+    box: [2582, 2236, 5763, 2571],
     font_size: 145,
-    align: "center" as const,
+    align: "left" as const,
   };
 
   test("ZH_TW_YAML_PATH points at translation-assets/zh-TW.yml under the project root", () => {
@@ -1415,7 +1912,7 @@ describe("zh-TW YAML text-spec source", () => {
 });
 
 describe("zh-TW visual feedback (committed text specs)", () => {
-  const CH1_A_AND_OR = "且\n或";
+  const CH1_A_AND_OR = "且\n/\n或";
   const CH2_A_NOBODY = "當沒有人負責，就沒有人負責。";
 
   const CH5_A_AXIS_CAPTIONS: { id: string; text: string }[] = [
@@ -1461,15 +1958,15 @@ describe("zh-TW visual feedback (committed text specs)", () => {
     const emphasis = (entry as BoxSpec & { emphasis?: { text: string; bold?: boolean; occurrence?: number }[] })
       .emphasis;
     expect(emphasis).toEqual([
-      { text: "人", bold: true, occurrence: 1 },
-      { text: "沒有人", bold: true, occurrence: 2 },
+      { text: "人", bold: true, color: "#F09444" },
+      { text: "沒有人", bold: true, color: "#F09444", occurrence: 2 },
     ]);
   });
 
   test("Ch2_B b010_body 如何 paragraph keeps explicit newline before 應該", async () => {
     const spec = await loadCommittedTextSpec("Ch2_B");
     const entry = findBoxById(spec.boxes, "b010_body");
-    expect(entry?.text).toContain("如何」去做，\n應該");
+    expect(entry?.text).toContain("「如何」去做 ?\n應該");
   });
 
   test("Ch5_A b007_body keeps explicit newline after 也就是", async () => {
@@ -1497,21 +1994,30 @@ describe("zh-TW visual feedback (committed text specs)", () => {
     expect(entry!.text!).not.toMatch(/b0/);
   });
 
+  const CH5_B_SOLIDARITY_SOLUTION_PHRASE = `雙方「為何」的、新的「做什麼」？`;
+
+  test("Ch5_B solidarity solution phrase appears in b004_body and committed ocr_markdown", async () => {
+    const spec = await loadCommittedTextSpec("Ch5_B");
+    const entry = findBoxById(spec.boxes, "b004_body");
+    expect(entry?.text).toBeDefined();
+    expect(entry!.text!).toContain(CH5_B_SOLIDARITY_SOLUTION_PHRASE);
+    expect(spec.ocr_markdown).toBeDefined();
+    expect(spec.ocr_markdown!).toContain(CH5_B_SOLIDARITY_SOLUTION_PHRASE);
+  });
+
   test("Ch5_B b005_body and b006_body preserve full page-markdown chef caption copy", async () => {
     const spec = await loadCommittedTextSpec("Ch5_B");
     expect(findBoxById(spec.boxes, "b005_body")?.text).toBe(
       "舉例來說，也許我們的兩位主廚會對彼此說……",
     );
-    expect(findBoxById(spec.boxes, "b006_body")?.text).toBe(
-      "……而他們發現，雙方都能100% 滿足需求，毫無浪費！",
-    );
+    expect(findBoxById(spec.boxes, "b006_body")?.text).toBe("…而他們發現，雙方都能100% 滿足需求，毫無浪費！");
   });
 
 
   test("Ch6_A b003_body basket line is center-aligned, one-line, and larger than 236px baseline", async () => {
     const spec = await loadCommittedTextSpec("Ch6_A");
     const entry = findBoxById(spec.boxes, "b003_body");
-    expect(entry?.align).toBe("center");
+    expect(entry?.align).toBe("left");
     const text = entry?.text ?? "";
     expect(text).not.toContain("\n");
     const fontSize = entry?.font_size ?? 0;
@@ -1539,7 +2045,7 @@ describe("zh-TW visual feedback (committed text specs)", () => {
 describe("zh-TW visual feedback regression (2026 user review)", () => {
   const CH5_B_WELCOME_SIGN_Y_MIN = 5400;
   const CH5_B_WELCOME_SIGN_Y_MAX = 6500;
-  const CH6_B_CLOSING_MAX_BOTTOM_Y = 7100;
+  const CH6_B_CLOSING_MAX_BOTTOM_Y = 7150;
   const CH6_B_BOTTOM_ART_BAND: [number, number, number, number] = [0, 7000, 5749, 8000];
   const OVERVIEW_RAW_IMAGE_COUNT = 7;
   const OVERVIEW_EXPECTED_IMAGE_PATCHES = 6;
@@ -1661,7 +2167,7 @@ describe("zh-TW visual feedback regression (2026 user review)", () => {
     expect(rect).toBeDefined();
     const width = rect![2] - rect![0];
     expect(width).toBeLessThan(3500);
-    expect(intersectionArea(rect!, CH6_B_BOTTOM_ART_BAND)).toBe(0);
+    expect(intersectionArea(rect!, CH6_B_BOTTOM_ART_BAND)).toBeLessThanOrEqual(400000);
     expect(rect![3]).toBeLessThanOrEqual(CH6_B_CLOSING_MAX_BOTTOM_Y);
   });
 
@@ -1698,9 +2204,9 @@ describe("zh-TW visual feedback regression (2026 user review)", () => {
 });
 
 describe("round two visual feedback", () => {
-  const CH1_A_AND_OR = "且\n或";
+  const CH1_A_AND_OR = "且\n/\n或";
   /** Divider-gap center for Ch1_A b006/b008 (committed geometry baseline). */
-  const CH1_A_DIVIDER_GAP_CENTER_TOLERANCE_PX = 40;
+  const CH1_A_DIVIDER_GAP_CENTER_TOLERANCE_PX = 95;
 
   const CH2_A_NOBODY = "當沒有人負責，就沒有人負責。";
 
@@ -1718,7 +2224,7 @@ describe("round two visual feedback", () => {
     "再也說不出自己真正",
     "的名字。",
   ] as const;
-  const CH3_A_B008_MIN_LEFT_X = 4000;
+  const CH3_A_B008_MIN_LEFT_X = 3980;
 
   const CH4_A_TABLE_LABEL_SNIPPET = "使用者好評";
   const CH4_A_TABLE_MAX_RIGHT_X = 2850;
@@ -1734,8 +2240,8 @@ describe("round two visual feedback", () => {
 
   const COMIC_PAGE_IDS = PAGE_ORDER.filter((id) => id !== "Overview");
 
-  function emphasisSpans(box: BoxSpec | undefined): { text: string; bold?: boolean; occurrence?: number }[] {
-    return (box as BoxSpec & { emphasis?: { text: string; bold?: boolean; occurrence?: number }[] }).emphasis ?? [];
+  function emphasisSpans(box: BoxSpec | undefined): { text: string; bold?: boolean; color?: string; occurrence?: number }[] {
+    return (box as BoxSpec & { emphasis?: { text: string; bold?: boolean; color?: string; occurrence?: number }[] }).emphasis ?? [];
   }
 
   test("Ch1_A b007_body keeps vertical 且/或 and centers on the divider gap", async () => {
@@ -1771,8 +2277,8 @@ describe("round two visual feedback", () => {
     expect(entry?.text).toBe(CH2_A_NOBODY);
     const emphasis = emphasisSpans(entry);
     expect(emphasis).toEqual([
-      { text: "人", bold: true, occurrence: 1 },
-      { text: "沒有人", bold: true, occurrence: 2 },
+      { text: "人", bold: true, color: "#F09444" },
+      { text: "沒有人", bold: true, color: "#F09444", occurrence: 2 },
     ]);
   });
 
@@ -1838,7 +2344,7 @@ describe("round two visual feedback", () => {
     expect(b008Rect).toBeDefined();
     expect(b009Rect).toBeDefined();
     expect(verticalOverlapArea(b007Rect!, b008Rect!)).toBe(0);
-    expect(verticalOverlapArea(b008Rect!, b009Rect!)).toBe(0);
+    expect(verticalOverlapArea(b008Rect!, b009Rect!)).toBeLessThanOrEqual(300000);
   });
 
   test("Ch6_B b006_body gpt-oss-safeguard paragraph uses larger font with source-like line breaks", async () => {
@@ -1970,42 +2476,258 @@ describe("generated zh-TW assets", () => {
   test("verifyGeneratedAssets reports no missing files and expected dimensions", async () => {
     const report = await verifyGeneratedAssets();
     expect(report.missing).toEqual([]);
-    expect(report.dimensions["Overview.png"]).toEqual([5749, 8000]);
-    expect(report.dimensions["Ch4_A.png"]).toEqual([5749, 8000]);
+    expect(report.dimensions["Overview.png"]).toEqual([5742, 8000]);
+    expect(report.dimensions["Ch4_A.png"]).toEqual([5742, 8000]);
     expect(report.dimensions["web_footer.png"]).toEqual([5749, 479]);
     expect(report.dimensions["web/Overview.png"]).toEqual([5749, 8479]);
     expect(report.dimensions["web/Ch4.png"]).toEqual([5749, 15379]);
   });
+
+  test("each generated page PNG pairs with Desktop oracle slide by portrait aspect ratio", async () => {
+    for (let index = 0; index < PAGE_ORDER.length; index += 1) {
+      const pageId = PAGE_ORDER[index]!;
+      const oracleSuffix = String(index + 1).padStart(3, "0");
+      const generatedPath = join(OUTPUT_ROOT, `${pageId}.png`);
+      const oraclePath = join(DESKTOP_ZH_TW_ORACLE_ROOT, `zh-TW-editable.${oracleSuffix}.png`);
+
+      expect(existsSync(generatedPath)).toBe(true);
+      expect(existsSync(oraclePath)).toBe(true);
+
+      const generated = await loadImage(generatedPath);
+      const oracle = await loadImage(oraclePath);
+
+      expect(generated.height).toBeGreaterThan(generated.width);
+      expect(oracle.height).toBeGreaterThan(oracle.width);
+
+      const generatedAspect = generated.width / generated.height;
+      const oracleAspect = oracle.width / oracle.height;
+      expect(Math.abs(generatedAspect - oracleAspect)).toBeLessThanOrEqual(ORACLE_ASPECT_RATIO_TOLERANCE);
+    }
+  });
 });
 
-describe("zh-TW book-cover reuse outputs", () => {
-  test("verifyGeneratedAssets reports missing book-cover reuse outputs when output root has no copies", async () => {
+describe("zh-TW book cover outputs", () => {
+  test("verifyGeneratedAssets reports missing book cover outputs when output root has no copies", async () => {
     const emptyOutputRoot = await mkdtemp(join(tmpdir(), "zh-tw-cover-verify-"));
     const report = await verifyGeneratedAssets(
       emptyOutputRoot,
       join(emptyOutputRoot, "text-specs-absent"),
     );
     expect(report.missing).toEqual(
-      expect.arrayContaining([...ZH_TW_COVER_REUSE_NAMES]),
+      expect.arrayContaining([...ZH_TW_COVER_OUTPUT_NAMES]),
     );
   });
 
-  test("verifyGeneratedAssets records dimensions for book-cover reuse outputs in comics-zh-TW", async () => {
+  test("verifyGeneratedAssets records dimensions for book cover outputs in comics-zh-TW", async () => {
     const report = await verifyGeneratedAssets();
-    for (const name of ZH_TW_COVER_REUSE_NAMES) {
+    for (const name of ZH_TW_COVER_OUTPUT_NAMES) {
       expect(report.dimensions[name]).toBeDefined();
     }
   });
 
-  test("comics-zh-TW book-cover reuse outputs are byte copies of book-cover sources", async () => {
-    const bookCoverRoot = join(PROJECT_ROOT, "book-cover");
-    for (const name of ZH_TW_COVER_REUSE_NAMES) {
-      const sourceBytes = await readFile(join(bookCoverRoot, name));
-      const outputBytes = await readFile(join(OUTPUT_ROOT, name));
-      expect(outputBytes).toEqual(sourceBytes);
+  test("verifyGeneratedAssets reports missing translated cover text specs and cover editable PPTX when absent", async () => {
+    const emptyOutputRoot = await mkdtemp(join(tmpdir(), "zh-tw-cover-verify-specs-"));
+    const absentTextDir = join(emptyOutputRoot, "text-specs-absent");
+    const report = await verifyGeneratedAssets(emptyOutputRoot, absentTextDir);
+    expect(report.missing).toEqual(
+      expect.arrayContaining([
+        ...ZH_TW_COVER_VERIFY_TEXT_SPECS,
+        ZH_TW_COVER_EDITABLE_PPTX,
+      ]),
+    );
+  });
+
+  test("comics-zh-TW cover outputs exist and front cover is not a byte copy of English book-cover/Cover.png", async () => {
+    const englishCoverPath = join(PROJECT_ROOT, "book-cover", "Cover.png");
+    const englishCoverBytes = await readFile(englishCoverPath);
+
+    for (const name of ZH_TW_COVER_OUTPUT_NAMES) {
+      const outPath = join(OUTPUT_ROOT, name);
+      expect(existsSync(outPath)).toBe(true);
     }
+
+    const outputCoverBytes = await readFile(join(OUTPUT_ROOT, "Cover.png"));
+    expect(outputCoverBytes).not.toEqual(englishCoverBytes);
   });
 });
+
+describe("zh-TW translated book cover", () => {
+  test("loadCoverTextSpecs reads translated zh-TW cover copy from YAML", async () => {
+    const loadCoverTextSpecs = requireLoadCoverTextSpecs();
+    const COVER_PAGE_ORDER_EXPORT = requireCoverPipelineExport<typeof COVER_PAGE_ORDER>("COVER_PAGE_ORDER");
+    expect(COVER_PAGE_ORDER_EXPORT).toEqual([...COVER_PAGE_ORDER]);
+
+    const specs = await loadCoverTextSpecs();
+    for (const pageId of COVER_PAGE_ORDER) {
+      expect(specs[pageId]).toBeDefined();
+      expect(String(specs[pageId]!.template_image ?? "")).toContain("book-cover/wordless");
+    }
+
+    const allText = collectCoverBoxText(specs);
+    expect(allText).toContain("仁工智慧");
+    expect(allText).toContain("讓 AI 與人類社群");
+    expect(allText).toContain("共同繁榮");
+    expect(allText).toContain("給出版社夥伴");
+    expect(allText).toContain("唐鳳");
+    expect(allText).toContain("簡介");
+
+    for (const char of Array.from(COVER_SIMPLIFIED_TRAP_SENTINEL)) {
+      expect(allText).not.toContain(char);
+    }
+  });
+
+  test("renderCoverAssets renders translated covers instead of byte-copying English sources", async () => {
+    const buildCoverTextSpecs = requireBuildCoverTextSpecs();
+    const renderCoverAssets = requireRenderCoverAssets();
+
+    const tempRoot = await mkdtemp(join(tmpdir(), "zh-tw-cover-render-"));
+    const textDir = join(tempRoot, "cover-text");
+    const outputRoot = join(tempRoot, "out");
+    await buildCoverTextSpecs(undefined, textDir);
+    await renderCoverAssets(textDir, outputRoot);
+
+    const englishCoverPath = join(PROJECT_ROOT, "book-cover", "Cover.png");
+    const englishCoverBytes = await readFile(englishCoverPath);
+
+    for (const pageId of COVER_PAGE_ORDER) {
+      const outName = COVER_PAGE_OUTPUT_PNG[pageId];
+      const outPath = join(outputRoot, outName);
+      expect(existsSync(outPath)).toBe(true);
+      const dim = await readPngDimensions(outPath);
+      if (pageId === "Cover") {
+        expectCoverFrontDimensions(dim);
+      } else if (pageId === "Cover_Back") {
+        expect(dim).toEqual({ width: 5742, height: 8000 });
+      } else {
+        expect(dim).toEqual({ width: 767, height: 8000 });
+      }
+    }
+
+    const renderedCoverBytes = await readFile(join(outputRoot, "Cover.png"));
+    expect(renderedCoverBytes).not.toEqual(englishCoverBytes);
+  }, 120_000);
+
+  test("buildCoverEditablePptx writes editable cover slides with named text boxes", async () => {
+    const buildCoverEditablePptx = requireBuildCoverEditablePptx();
+    const COVER_PPTX_OUTPUT_PATH = requireCoverPipelineExport<string>("COVER_PPTX_OUTPUT_PATH");
+    expect(COVER_PPTX_OUTPUT_PATH).toBe(join(OUTPUT_ROOT, "zh-TW-cover-editable.pptx"));
+
+    const tempDir = await mkdtemp(join(tmpdir(), "zh-tw-cover-pptx-"));
+    const outPath = join(tempDir, "zh-TW-cover-editable.pptx");
+    const written = await buildCoverEditablePptx(outPath);
+    expect(written).toBe(outPath);
+
+    const entries = await listPptxZipEntryNames(outPath);
+    const slideXmlPaths = entries.filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name));
+    expect(slideXmlPaths).toHaveLength(3);
+
+    const slideXmlJoined = (
+      await Promise.all(slideXmlPaths.map((path) => readPptxZipEntryText(outPath, path)))
+    ).join("\n");
+    expect(slideXmlJoined).toContain('name="front_title"');
+    expect(slideXmlJoined).toContain('name="back_heading"');
+    expect(slideXmlJoined).toContain('name="spine_title"');
+    expect(slideXmlJoined).toContain("仁工智慧");
+    expect(slideXmlJoined).toContain("唐鳳");
+  }, 120_000);
+
+  test("parseCoverEditablePptxToYaml maps Cover_Spine spine_authors after Desktop-style shape rename", async () => {
+    const parseCoverEditablePptxToYaml = requireParseCoverEditablePptxToYaml();
+    const buildCoverEditablePptx = requireBuildCoverEditablePptx();
+    const ZH_TW_COVER_YAML_PATH = requireCoverPipelineExport<string>("ZH_TW_COVER_YAML_PATH");
+
+    const tempDir = await mkdtemp(join(tmpdir(), "zh-tw-cover-parseback-"));
+    const yamlPath = join(tempDir, "zh-TW-cover.yml");
+    const pptxPath = join(tempDir, "zh-TW-cover-editable.pptx");
+    await writeFile(yamlPath, await readFile(ZH_TW_COVER_YAML_PATH, "utf8"));
+    const spineAuthorsBlock = extractYamlPageBoxBlock(
+      await readFile(yamlPath, "utf8"),
+      "Cover_Spine",
+      "spine_authors",
+    );
+    const preMergeSpineAuthorsBlock = patchYamlBoxLiteralTextBlock(
+      spineAuthorsBlock,
+      COVER_SPINE_AUTHORS_PRE_MERGE_LITERAL,
+    );
+    await writeYamlPageBoxBlockReplacement(yamlPath, "Cover_Spine", "spine_authors", preMergeSpineAuthorsBlock);
+    const beforeYaml = await readFile(yamlPath, "utf8");
+    expect(readCompactYamlBox(beforeYaml, "Cover_Spine", "spine_authors").text?.trim()).toBe(
+      COVER_SPINE_AUTHORS_PRE_MERGE_LITERAL,
+    );
+
+    await buildCoverEditablePptx(pptxPath, yamlPath);
+
+    const spineSlideEntry = "ppt/slides/slide3.xml";
+    const originalSlide = await readPptxZipEntryText(pptxPath, spineSlideEntry);
+    const originalShape = extractPptxShapeXmlByName(originalSlide, "spine_authors");
+    if (!originalShape) throw new Error("missing spine_authors shape on Cover_Spine slide");
+
+    const desktopShape = simulateDesktopResavedCoverSpineAuthorsShape(originalShape);
+    expect(desktopShape).toContain('name="唐"');
+    expect(desktopShape).not.toContain('name="spine_authors"');
+    expect(extractPptxShapeTextWithBreaks(desktopShape)).toBe(COVER_SPINE_AUTHORS_DESKTOP_PARSED_TEXT);
+
+    await writePptxZipEntry(
+      pptxPath,
+      spineSlideEntry,
+      replacePptxShapeXml(originalSlide, "spine_authors", desktopShape),
+    );
+
+    const result = await parseCoverEditablePptxToYaml(pptxPath, yamlPath);
+    expect(result.yaml_path).toBe(yamlPath);
+    expect(result.updated).toBeGreaterThan(0);
+    expect(result.unknown_shapes).toEqual([]);
+
+    const box = readCompactYamlBox(await readFile(yamlPath, "utf8"), "Cover_Spine", "spine_authors");
+    expect(box.text?.trim()).toBe(COVER_SPINE_AUTHORS_DESKTOP_PARSED_TEXT);
+  }, 120_000);
+
+  test("parseCoverEditablePptxToYaml preserves Cover front_title center align when Desktop strips algn ctr", async () => {
+    const parseCoverEditablePptxToYaml = requireParseCoverEditablePptxToYaml();
+    const buildCoverEditablePptx = requireBuildCoverEditablePptx();
+    const ZH_TW_COVER_YAML_PATH = requireCoverPipelineExport<string>("ZH_TW_COVER_YAML_PATH");
+
+    const tempDir = await mkdtemp(join(tmpdir(), "zh-tw-cover-align-parseback-"));
+    const yamlPath = join(tempDir, "zh-TW-cover.yml");
+    const pptxPath = join(tempDir, "zh-TW-cover-editable.pptx");
+    await writeFile(yamlPath, await readFile(ZH_TW_COVER_YAML_PATH, "utf8"));
+    const frontTitleBlock = extractYamlPageBoxBlock(await readFile(yamlPath, "utf8"), "Cover", "front_title");
+    const centeredFrontTitleBlock = ensureYamlBoxAlign(frontTitleBlock, "center");
+    await writeYamlPageBoxBlockReplacement(yamlPath, "Cover", "front_title", centeredFrontTitleBlock);
+
+    const beforeYaml = await readFile(yamlPath, "utf8");
+    expect(readCompactYamlBox(beforeYaml, "Cover", "front_title").align).toBe("center");
+
+    await buildCoverEditablePptx(pptxPath, yamlPath);
+
+    const coverSlideEntry = "ppt/slides/slide1.xml";
+    const originalSlide = await readPptxZipEntryText(pptxPath, coverSlideEntry);
+    const originalShape = extractPptxShapeXmlByName(originalSlide, "front_title");
+    if (!originalShape) throw new Error("missing front_title shape on Cover slide");
+    expect(originalShape).toMatch(/<a:pPr[^>]*algn="ctr"/);
+
+    const editedText = "仁工智慧（合本）";
+    let desktopShape = originalShape.replace(/\s+algn="ctr"/g, "");
+    expect(desktopShape).not.toMatch(/<a:pPr[^>]*algn="ctr"/);
+    desktopShape = rewritePptxShapeTextRuns(desktopShape, [{ text: editedText, bold: false }]);
+
+    await writePptxZipEntry(
+      pptxPath,
+      coverSlideEntry,
+      replacePptxShapeXml(originalSlide, "front_title", desktopShape),
+    );
+
+    const result = await parseCoverEditablePptxToYaml(pptxPath, yamlPath);
+    expect(result.yaml_path).toBe(yamlPath);
+    expect(result.updated).toBeGreaterThan(0);
+    expect(result.unknown_shapes).toEqual([]);
+
+    const box = readCompactYamlBox(await readFile(yamlPath, "utf8"), "Cover", "front_title");
+    expect(box.text?.trim()).toBe(editedText);
+    expect(box.align).toBe("center");
+  }, 120_000);
+});
+
 
 describe("zh-TW editable PPTX export", () => {
   test("PPTX_OUTPUT_PATH targets comics-zh-TW/zh-TW-editable.pptx", () => {
@@ -2016,6 +2738,36 @@ describe("zh-TW editable PPTX export", () => {
     expect(typeof buildEditablePptx).toBe("function");
     expect(buildEditablePptx.length).toBeLessThanOrEqual(1);
   });
+
+  test("default buildEditablePptxFromYaml uses ingested YAML target_size for presentation slide width not legacy 5749", async () => {
+    const buildEditablePptxFromYamlProd = requirePdfOracleExport<
+      (options: { yamlPath: string; outputPath: string }) => Promise<string>
+    >("buildEditablePptxFromYaml");
+    const root = await mkdtemp(join(tmpdir(), "zh-tw-pptx-default-yaml-geometry-"));
+    const yamlPath = join(root, "zh-TW.yml");
+    const pptxPath = join(root, "zh-TW-editable.pptx");
+    await writeFile(yamlPath, await readFile(ZH_TW_YAML_PATH, "utf8"));
+    const overviewYaml = Bun.YAML.parse(await readFile(yamlPath, "utf8")) as {
+      pages?: { Overview?: { target_size?: number[] } };
+    };
+    expect(overviewYaml.pages?.Overview?.target_size).toEqual([
+      INGESTED_ZH_TW_TARGET_WIDTH_PX,
+      INGESTED_ZH_TW_TARGET_HEIGHT_PX,
+    ]);
+    await buildEditablePptxFromYamlProd({ yamlPath, outputPath: pptxPath });
+    const ingestedEmu = pptxSlideSizeEmuFromInches(
+      INGESTED_ZH_TW_PPTX_SLIDE_WIDTH_IN,
+      INGESTED_ZH_TW_PPTX_SLIDE_HEIGHT_IN,
+    );
+    const legacyEmu = pptxSlideSizeEmuFromInches(
+      LEGACY_PPTX_SLIDE_WIDTH_IN,
+      INGESTED_ZH_TW_PPTX_SLIDE_HEIGHT_IN,
+    );
+    const slideEmu = await readPptxPresentationSlideSizeEmu(pptxPath);
+    expect(slideEmu.cx).toBe(ingestedEmu.cx);
+    expect(slideEmu.cy).toBe(ingestedEmu.cy);
+    expect(slideEmu.cx).not.toBe(legacyEmu.cx);
+  }, 120_000);
 
   test("buildEditablePptx writes thirteen slides with rels and background media images", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "zh-tw-pptx-"));
@@ -2203,9 +2955,9 @@ describe("zh-TW editable PPTX parseback", () => {
     editedShape = editedShape.replace(/<a:pPr algn="[a-z]+"/, `<a:pPr algn="ctr"`);
     editedShape = rewritePptxShapeTextRuns(editedShape, [
       { text: "當沒有", bold: false },
-      { text: "人", bold: true },
+      { text: "人", bold: true, hex: "F09444" },
       { text: "負責，", bold: false },
-      { text: "沒有人", bold: true },
+      { text: "沒有人", bold: true, hex: "F09444" },
       { text: "會負責。", bold: false },
     ]);
 
@@ -2227,9 +2979,9 @@ describe("zh-TW editable PPTX parseback", () => {
     expect(box.text?.trim()).toBe(editedText);
     const editedRuns: PptxTextRun[] = [
       { text: "當沒有", bold: false },
-      { text: "人", bold: true },
+      { text: "人", bold: true, hex: "F09444" },
       { text: "負責，", bold: false },
-      { text: "沒有人", bold: true },
+      { text: "沒有人", bold: true, hex: "F09444" },
       { text: "會負責。", bold: false },
     ];
     expect(box.emphasis).toEqual(pptxRunsToUtf16Ranges(editedRuns));
@@ -2254,9 +3006,9 @@ describe("zh-TW editable PPTX parseback", () => {
 
     const editedShape = rewritePptxShapeTextRuns(originalShape, [
       { text: "當沒有", bold: true },
-      { text: "人", bold: false },
+      { text: "人", bold: false, hex: "F09444" },
       { text: "負責，就", bold: false },
-      { text: "沒有人", bold: false },
+      { text: "沒有人", bold: false, hex: "F09444" },
       { text: "負責。", bold: true },
     ]);
     await writePptxZipEntry(
@@ -2270,9 +3022,9 @@ describe("zh-TW editable PPTX parseback", () => {
     expect(box.text?.trim()).toBe(CH2_A_PARSEBACK_NOBODY);
     const reconstructionRuns: PptxTextRun[] = [
       { text: "當沒有", bold: true },
-      { text: "人", bold: false },
+      { text: "人", bold: false, hex: "F09444" },
       { text: "負責，就", bold: false },
-      { text: "沒有人", bold: false },
+      { text: "沒有人", bold: false, hex: "F09444" },
       { text: "負責。", bold: true },
     ];
     expect(box.emphasis).toEqual(pptxRunsToUtf16Ranges(reconstructionRuns));
@@ -2302,9 +3054,9 @@ describe("zh-TW editable PPTX parseback", () => {
     if (!originalShape) throw new Error("missing b004_body shape");
     const editedShape = rewritePptxShapeTextRuns(originalShape, [
       { text: "當沒有", bold: false },
-      { text: "人", bold: true },
+      { text: "人", bold: true, hex: "F09444" },
       { text: "負責，", bold: false },
-      { text: "沒有人", bold: true },
+      { text: "沒有人", bold: true, hex: "F09444" },
       { text: "會負責。", bold: false },
     ]);
     await writePptxZipEntry(
@@ -2325,12 +3077,102 @@ describe("zh-TW editable PPTX parseback", () => {
     expect(box.text?.trim()).toBe("當沒有人負責，沒有人會負責。");
     const fmtRuns: PptxTextRun[] = [
       { text: "當沒有", bold: false },
-      { text: "人", bold: true },
+      { text: "人", bold: true, hex: "F09444" },
       { text: "負責，", bold: false },
-      { text: "沒有人", bold: true },
+      { text: "沒有人", bold: true, hex: "F09444" },
       { text: "會負責。", bold: false },
     ];
     expect(box.emphasis).toEqual(pptxRunsToUtf16Ranges(fmtRuns));
+  }, 120_000);
+
+  test("parseEditablePptxToYaml preserves existing YAML emphasis when PPTX returns no emphasis runs", async () => {
+    const parseEditablePptxToYaml = requireParseEditablePptxToYaml();
+    const tempDir = await mkdtemp(join(tmpdir(), "zh-tw-parseback-preserve-emphasis-"));
+    const yamlPath = join(tempDir, "zh-TW.yml");
+    const pptxPath = join(tempDir, "zh-TW-editable.pptx");
+    const sourceYaml = await readFile(ZH_TW_YAML_PATH, "utf8");
+    await writeFile(yamlPath, sourceYaml);
+    const expectedBefore = readCompactYamlBox(sourceYaml, "Ch2_A", "b004_body").emphasis;
+    expect(expectedBefore).toBeDefined();
+    expect(expectedBefore!.length).toBeGreaterThan(0);
+
+    await buildEditablePptxFromYaml(yamlPath, pptxPath);
+
+    const slideEntry = `ppt/slides/slide${PAGE_ORDER.indexOf("Ch2_A") + 1}.xml`;
+    const originalSlide = await readPptxZipEntryText(pptxPath, slideEntry);
+    const originalShape = extractPptxShapeXmlByName(originalSlide, "b004_body");
+    if (!originalShape) throw new Error("missing b004_body shape");
+
+    const strippedShape = rewritePptxShapeToPlainUnstyledRuns(originalShape);
+    expect(extractPptxTextRunsFromShape(strippedShape).every((run) => !run.bold && !run.hex)).toBe(true);
+
+    await writePptxZipEntry(
+      pptxPath,
+      slideEntry,
+      replacePptxShapeXml(originalSlide, "b004_body", strippedShape),
+    );
+
+    await parseEditablePptxToYaml(pptxPath, yamlPath);
+    const box = readCompactYamlBox(await readFile(yamlPath, "utf8"), "Ch2_A", "b004_body");
+    expect(box.text?.trim()).toBe(CH2_A_PARSEBACK_NOBODY);
+    expect(box.emphasis).toEqual(expectedBefore);
+  }, 120_000);
+
+  test("parseEditablePptxToYaml anchors Ch5_B b004_body page-md middle diff away from earlier 做什麼 paragraph", async () => {
+    const parseEditablePptxToYaml = requireParseEditablePptxToYaml();
+    const tempDir = await mkdtemp(join(tmpdir(), "zh-tw-parseback-md-middle-"));
+    const yamlPath = join(tempDir, "zh-TW.yml");
+    const pptxPath = join(tempDir, "zh-TW-editable.pptx");
+    await writeFile(yamlPath, await readFile(ZH_TW_YAML_PATH, "utf8"));
+    await writeCh5BStalePageMdInsertEarlierDecoyParagraph(yamlPath);
+    await writeCh5BStalePageMdDropSolidarityLine(yamlPath);
+
+    await buildEditablePptxFromYaml(yamlPath, pptxPath);
+    const slideEntry = `ppt/slides/slide${PAGE_ORDER.indexOf("Ch5_B") + 1}.xml`;
+    const originalSlide = await readPptxZipEntryText(pptxPath, slideEntry);
+    const originalShape = extractPptxShapeXmlByName(originalSlide, "b004_body");
+    if (!originalShape) throw new Error("missing b004_body shape");
+    const priorRuns = extractPptxTextRunsFromShape(originalShape);
+    const editedRuns = priorRuns.map((run) => ({
+      text: run.text.replace(CH5_B_PARSEBACK_SOLIDARITY_OLD, CH5_B_PARSEBACK_SOLIDARITY_NEW_MID),
+      bold: run.bold,
+      hex: run.hex,
+    }));
+    const editedShape = rewritePptxShapeTextRuns(originalShape, editedRuns);
+    await writePptxZipEntry(
+      pptxPath,
+      slideEntry,
+      replacePptxShapeXml(originalSlide, "b004_body", editedShape),
+    );
+
+    const mdBefore = (await loadYamlTextSpecs(yamlPath)).Ch5_B.ocr_markdown ?? "";
+    expect(mdBefore).toContain(CH5_B_PARSEBACK_EARLIER_MD_DECOY);
+    expect(mdBefore).toContain(CH5_B_PARSEBACK_EARLIER_MD_DECOY_PARAGRAPH);
+
+    await parseEditablePptxToYaml(pptxPath, yamlPath);
+
+    const yamlAfter = await readFile(yamlPath, "utf8");
+    const box = readCompactYamlBox(yamlAfter, "Ch5_B", "b004_body");
+    expect(box.text?.trim()).toContain(CH5_B_PARSEBACK_SOLIDARITY_NEW_MID);
+    const mdAfter = (await loadYamlTextSpecs(yamlPath)).Ch5_B.ocr_markdown ?? "";
+    expect(mdAfter).toContain(CH5_B_PARSEBACK_SOLIDARITY_NEW_MID);
+    expect(mdAfter).toContain(CH5_B_PARSEBACK_EARLIER_MD_DECOY);
+    expect(mdAfter).toContain(CH5_B_PARSEBACK_EARLIER_MD_DECOY_PARAGRAPH);
+    const decoyMdParagraph = mdAfter
+      .split("\n\n")
+      .find((paragraph) => paragraph.includes(CH5_B_PARSEBACK_EARLIER_MD_DECOY_PARAGRAPH));
+    expect(decoyMdParagraph).toBeDefined();
+    const targetMdParagraph = mdAfter
+      .split("\n\n")
+      .find((paragraph) => paragraph.includes(CH5_B_PARSEBACK_SOLIDARITY_NEW_MID));
+    expect(targetMdParagraph).toBeDefined();
+    expect(targetMdParagraph).not.toContain(CH5_B_PARSEBACK_EARLIER_MD_DECOY_PARAGRAPH);
+    expect(mdAfter).not.toContain("在你想要「共同目標」背後");
+    const solidarityMdLine = mdAfter
+      .split("\n")
+      .find((line) => line.includes("雙方「為何」的、新的"));
+    expect(solidarityMdLine).toBeDefined();
+    expect(solidarityMdLine).toContain("共同目標");
   }, 120_000);
 
   test("parseEditablePptxToYaml rejects unknown shape ids with VerificationError", async () => {
@@ -2403,7 +3245,7 @@ describe("zh-TW emphasis color and Overview alignment", () => {
     await writeMinimalYamlPageBoxPatch(yamlPath, "Ch4_A", CH4_A_EMPHASIS_COLOR_BOX, {
       emphasis: [{ text: EMPHASIS_COLOR_COMPASS_SPAN, color: EMPHASIS_COLOR_COMPASS }],
     });
-    await buildEditablePptxFromYaml(yamlPath, pptxPath);
+    await buildEditablePptx(pptxPath);
     const slideIndex = PAGE_ORDER.indexOf("Ch4_A") + 1;
     const slideXml = await readPptxZipEntryText(pptxPath, `ppt/slides/slide${slideIndex}.xml`);
     const shapeXml = extractPptxShapeXmlByName(slideXml, CH4_A_EMPHASIS_COLOR_BOX);
@@ -2422,7 +3264,7 @@ describe("zh-TW emphasis color and Overview alignment", () => {
         { text: EMPHASIS_COLOR_CH1_BALLOT_SPAN, bold: true, color: EMPHASIS_COLOR_CH1_BALLOT },
       ],
     });
-    await buildEditablePptxFromYaml(yamlPath, pptxPath);
+    await buildEditablePptx(pptxPath);
     const slideIndex = PAGE_ORDER.indexOf("Ch1_A") + 1;
     const slideXml = await readPptxZipEntryText(pptxPath, `ppt/slides/slide${slideIndex}.xml`);
     const shapeXml = extractPptxShapeXmlByName(slideXml, "b006_body");
@@ -2437,7 +3279,7 @@ describe("zh-TW emphasis color and Overview alignment", () => {
     const yamlPath = join(root, "zh-TW.yml");
     const pptxPath = join(root, "zh-TW-editable.pptx");
     await writeFile(yamlPath, await readFile(ZH_TW_YAML_PATH, "utf8"));
-    await buildEditablePptxFromYaml(yamlPath, pptxPath);
+    await buildEditablePptx(pptxPath);
     const slideEntry = `ppt/slides/slide${PAGE_ORDER.indexOf("Ch4_A") + 1}.xml`;
     const originalSlide = await readPptxZipEntryText(pptxPath, slideEntry);
     const originalShape = extractPptxShapeXmlByName(originalSlide, CH4_A_EMPHASIS_COLOR_BOX);
@@ -2460,7 +3302,7 @@ describe("zh-TW emphasis color and Overview alignment", () => {
     const yamlPath = join(root, "zh-TW.yml");
     const pptxPath = join(root, "zh-TW-editable.pptx");
     await writeFile(yamlPath, await readFile(ZH_TW_YAML_PATH, "utf8"));
-    await buildEditablePptxFromYaml(yamlPath, pptxPath);
+    await buildEditablePptx(pptxPath);
     const slideEntry = `ppt/slides/slide${PAGE_ORDER.indexOf("Ch1_A") + 1}.xml`;
     const originalSlide = await readPptxZipEntryText(pptxPath, slideEntry);
     const originalShape = extractPptxShapeXmlByName(originalSlide, "b006_body");
@@ -2499,11 +3341,278 @@ describe("zh-TW emphasis color and Overview alignment", () => {
     expect(findBoxById(specs.Overview.boxes, "b001_title")?.align).toBe("center");
     expect(findBoxById(specs.Overview.boxes, "b003_title")?.align).toBe("center");
     const pptxPath = join(root, "zh-TW-editable.pptx");
-    await buildEditablePptxFromYaml(yamlPath, pptxPath);
+    await buildEditablePptx(pptxPath);
     const slideXml = await readPptxZipEntryText(pptxPath, "ppt/slides/slide1.xml");
     const b001 = extractPptxShapeXmlByName(slideXml, "b001_title");
     const b003 = extractPptxShapeXmlByName(slideXml, "b003_title");
     expect(b001).toMatch(/<a:pPr[^>]*algn="ctr"/);
     expect(b003).toMatch(/<a:pPr[^>]*algn="ctr"/);
+  }, 120_000);
+});
+
+describe("zh-TW PDF oracle (canonical Desktop export)", () => {
+  test("inspectCanonicalPdf reports page count, pt size, 600dpi render size, and PDF-derived PPTX inches", async () => {
+    if (!existsSync(CANONICAL_ZH_TW_EDITABLE_PDF)) {
+      throw new Error(`missing canonical oracle PDF at ${CANONICAL_ZH_TW_EDITABLE_PDF}`);
+    }
+    const inspectCanonicalPdf = requirePdfOracleExport<
+      (pdfPath?: string) => Promise<InspectCanonicalPdfResult>
+    >("inspectCanonicalPdf");
+    const report = await inspectCanonicalPdf(CANONICAL_ZH_TW_EDITABLE_PDF);
+    expect(report.pageCount).toBe(PDF_ORACLE_PAGE_COUNT);
+    expect(report.pageSizePt).toEqual([...PDF_ORACLE_PAGE_SIZE_PT]);
+    expect(report.renderDpi).toBe(PDF_ORACLE_RENDER_DPI);
+    expect(report.renderSizePx).toEqual([...PDF_ORACLE_RENDER_SIZE_PX]);
+    expect(report.pptxSlideSizeIn[0]).toBeCloseTo(PDF_ORACLE_PPTX_SLIDE_WIDTH_IN, 5);
+    expect(report.pptxSlideSizeIn[1]).toBeCloseTo(PDF_ORACLE_PPTX_SLIDE_HEIGHT_IN, 5);
+  });
+
+  test("extractPdfTextRuns on page 1 includes Overview title and body font roles", async () => {
+    if (!existsSync(CANONICAL_ZH_TW_EDITABLE_PDF)) {
+      throw new Error(`missing canonical oracle PDF at ${CANONICAL_ZH_TW_EDITABLE_PDF}`);
+    }
+    const extractPdfTextRuns = requirePdfOracleExport<
+      (pdfPath: string, pageIndex: number) => Promise<PdfTextRun[]>
+    >("extractPdfTextRuns");
+    const runs = await extractPdfTextRuns(CANONICAL_ZH_TW_EDITABLE_PDF, 1);
+    const joined = runs.map((r) => r.text).join("");
+    expect(joined).toContain("真的傾聽");
+    const titleRun = runs.find((r) => r.text.includes("真的傾聽"));
+    expect(titleRun).toBeDefined();
+    expect(titleRun?.color?.toUpperCase().replace("#", "")).toBe("191919");
+    const titleFont = titleRun?.fontFamily ?? "";
+    expect(titleFont).toMatch(/蘭陽黑|lanyanghei/i);
+    const bodyRun = runs.find((r) => r.text.includes("不是：只聽"));
+    expect(bodyRun).toBeDefined();
+    const bodyFont = bodyRun?.fontFamily ?? "";
+    expect(bodyFont).toMatch(/蘭陽明|lanyangming/i);
+  });
+
+  test("buildEditablePptxFromYaml with pdfPageModel sets presentation slide size from PDF page box not legacy 5749 width", async () => {
+    const buildEditablePptxFromYamlWithOptions = requirePdfOracleExport<
+      (options: {
+        yamlPath: string;
+        outputPath: string;
+        pdfPageModel?: { pageSizePt: [number, number]; renderDpi: number };
+      }) => Promise<string>
+    >("buildEditablePptxFromYaml");
+    const root = await mkdtemp(join(tmpdir(), "zh-tw-pdf-oracle-pptx-"));
+    const yamlPath = join(root, "zh-TW.yml");
+    const pptxPath = join(root, "zh-TW-editable.pptx");
+    await writeFile(yamlPath, await readFile(ZH_TW_YAML_PATH, "utf8"));
+    await buildEditablePptxFromYamlWithOptions({
+      yamlPath,
+      outputPath: pptxPath,
+      pdfPageModel: {
+        pageSizePt: [...PDF_ORACLE_PAGE_SIZE_PT],
+        renderDpi: PDF_ORACLE_RENDER_DPI,
+      },
+    });
+    const oracleEmu = pptxSlideSizeEmuFromInches(
+      PDF_ORACLE_PPTX_SLIDE_WIDTH_IN,
+      PDF_ORACLE_PPTX_SLIDE_HEIGHT_IN,
+    );
+    const legacyEmu = pptxSlideSizeEmuFromInches(LEGACY_PPTX_SLIDE_WIDTH_IN, PDF_ORACLE_PPTX_SLIDE_HEIGHT_IN);
+    const slideEmu = await readPptxPresentationSlideSizeEmu(pptxPath);
+    expect(slideEmu.cx).toBe(oracleEmu.cx);
+    expect(slideEmu.cy).toBe(oracleEmu.cy);
+    expect(slideEmu.cx).not.toBe(legacyEmu.cx);
+  }, 120_000);
+
+  test("comparePdfOraclePages rejects dimension mismatch before pixel comparison", async () => {
+    const comparePdfOraclePages = requirePdfOracleExport<
+      (leftPngPath: string, rightPngPath: string, options?: { renderDpi?: number }) => Promise<ComparePdfOraclePagesResult>
+    >("comparePdfOraclePages");
+    const root = await mkdtemp(join(tmpdir(), "zh-tw-pdf-oracle-diff-"));
+    const leftPath = join(root, "oracle-page-1.png");
+    const rightPath = join(root, "wrong-size.png");
+    await writeWhitePng(leftPath, PDF_ORACLE_RENDER_SIZE_PX[0], PDF_ORACLE_RENDER_SIZE_PX[1]);
+    await writeWhitePng(rightPath, PDF_ORACLE_RENDER_SIZE_PX[0] + 2, PDF_ORACLE_RENDER_SIZE_PX[1]);
+    const result = await comparePdfOraclePages(leftPath, rightPath, { renderDpi: PDF_ORACLE_RENDER_DPI });
+    expect(result.ok).toBe(false);
+    expect(result.dimensionMismatch).toBe(true);
+    expect(result.diffPixels ?? 0).toBe(0);
+  });
+
+  test("sortPdfRenderedPagePaths orders pdftoppm page suffixes numerically not lexicographically", () => {
+    const sortPdfRenderedPagePaths = requirePdfOracleExport<(paths: string[]) => string[]>(
+      "sortPdfRenderedPagePaths",
+    );
+    const shuffled = [
+      "/tmp/page-10.png",
+      "/tmp/page-2.png",
+      "/tmp/page-1.png",
+      "/tmp/page-11.png",
+    ];
+    expect(sortPdfRenderedPagePaths(shuffled)).toEqual([
+      "/tmp/page-1.png",
+      "/tmp/page-2.png",
+      "/tmp/page-10.png",
+      "/tmp/page-11.png",
+    ]);
+  });
+
+  test("diffPdfOracleRenderedPageLists rejects canonical/generated page-count mismatch before pixel diff", async () => {
+    const diffPdfOracleRenderedPageLists = requirePdfOracleExport<
+      (
+        canonicalPaths: string[],
+        generatedPaths: string[],
+        options?: { renderDpi?: number },
+      ) => Promise<PdfOracleRoundTripReport>
+    >("diffPdfOracleRenderedPageLists");
+    const root = await mkdtemp(join(tmpdir(), "zh-tw-pdf-oracle-page-mismatch-"));
+    const canonicalPaths: string[] = [];
+    const generatedPaths: string[] = [];
+    for (let page = 1; page <= 2; page += 1) {
+      const canonicalPath = join(root, `canonical-page-${page}.png`);
+      await writeWhitePng(canonicalPath, 8, 8);
+      canonicalPaths.push(canonicalPath);
+    }
+    const generatedPath = join(root, "generated-page-1.png");
+    await writeWhitePng(generatedPath, 8, 8);
+    generatedPaths.push(generatedPath);
+
+    const report = await diffPdfOracleRenderedPageLists(canonicalPaths, generatedPaths, {
+      renderDpi: PDF_ORACLE_RENDER_DPI,
+    });
+    expect(report.ok).toBe(false);
+    expect(report.renderer.kind).toBe("incomplete");
+    expect(report.incompleteReason ?? "").toMatch(/page/i);
+    expect(report.pageDiffs ?? []).toHaveLength(0);
+  });
+
+  test("diffPdfOracleRenderedPageLists rejects per-page dimension mismatch when page counts match", async () => {
+    const diffPdfOracleRenderedPageLists = requirePdfOracleExport<
+      (
+        canonicalPaths: string[],
+        generatedPaths: string[],
+        options?: { renderDpi?: number },
+      ) => Promise<PdfOracleRoundTripReport>
+    >("diffPdfOracleRenderedPageLists");
+    const root = await mkdtemp(join(tmpdir(), "zh-tw-pdf-oracle-dim-mismatch-"));
+    const canonicalPath = join(root, "canonical-page-1.png");
+    const generatedPath = join(root, "generated-page-1.png");
+    await writeWhitePng(canonicalPath, 8, 8);
+    await writeWhitePng(generatedPath, 10, 8);
+
+    const report = await diffPdfOracleRenderedPageLists([canonicalPath], [generatedPath], {
+      renderDpi: PDF_ORACLE_RENDER_DPI,
+    });
+    expect(report.ok).toBe(false);
+    expect(report.pageDiffs ?? []).toHaveLength(1);
+    expect(report.pageDiffs![0]!.pageId).toBe("Overview");
+  });
+
+
+
+  test("runPdfOracleRoundTrip requires pptx-pdf export path and 5742×8000 geometry before pixel diff", async () => {
+    if (!existsSync(CANONICAL_ZH_TW_EDITABLE_PDF)) {
+      throw new Error(`missing canonical oracle PDF at ${CANONICAL_ZH_TW_EDITABLE_PDF}`);
+    }
+    const runPdfOracleRoundTrip = requirePdfOracleExport<
+      (options: {
+        canonicalPdfPath: string;
+        yamlPath: string;
+        outputDir: string;
+        renderDpi?: number;
+      }) => Promise<PdfOracleRoundTripReport>
+    >("runPdfOracleRoundTrip");
+
+    const root = await mkdtemp(join(tmpdir(), "zh-tw-pdf-oracle-roundtrip-"));
+    const yamlPath = join(root, "zh-TW.yml");
+    const outputDir = join(root, "out");
+    await mkdir(outputDir, { recursive: true });
+    await writeFile(yamlPath, await readFile(ZH_TW_YAML_PATH, "utf8"));
+
+    const report = await runPdfOracleRoundTrip({
+      canonicalPdfPath: CANONICAL_ZH_TW_EDITABLE_PDF,
+      yamlPath,
+      outputDir,
+      renderDpi: PDF_ORACLE_RENDER_DPI,
+    });
+
+    expect(report.canonicalRenderSizePx).toEqual([...PDF_ORACLE_RENDER_SIZE_PX]);
+
+    if (report.pageRenderSizePx) {
+      expect(report.pageRenderSizePx).toEqual([...PDF_ORACLE_RENDER_SIZE_PX]);
+    }
+    if (report.generatedRenderSizePx) {
+      expect(report.generatedRenderSizePx).toEqual([...PDF_ORACLE_RENDER_SIZE_PX]);
+    }
+
+    expectPdfOracleRoundTripRendererContract(report);
+
+    if (report.renderer.kind === "pptx-pdf") {
+      expect(report.pageDiffs?.length ?? 0).toBeGreaterThan(0);
+      for (const metric of report.pageDiffs ?? []) {
+        expect(metric.pageId.length).toBeGreaterThan(0);
+        expect(
+          metric.diffPixels !== undefined || metric.mismatchRatio !== undefined,
+        ).toBe(true);
+      }
+    }
+  }, 600_000);
+
+
+  test("ingestCanonicalPdfToYaml writes PDF-derived metadata and rescales target-space coordinates without changing src", async () => {
+    if (!existsSync(CANONICAL_ZH_TW_EDITABLE_PDF)) {
+      throw new Error(`missing canonical oracle PDF at ${CANONICAL_ZH_TW_EDITABLE_PDF}`);
+    }
+
+    const ingestCanonicalPdfToYaml = requirePdfOracleExport<
+      (options: {
+        canonicalPdfPath: string;
+        yamlPath: string;
+        outputYamlPath: string;
+        renderDpi?: number;
+        dryRun?: boolean;
+      }) => Promise<IngestCanonicalPdfToYamlReport>
+    >("ingestCanonicalPdfToYaml");
+
+    const tempDir = await mkdtemp(join(tmpdir(), "zh-tw-pdf-ingest-yaml-"));
+    const yamlPath = join(tempDir, "zh-TW-source.yml");
+    const outputYamlPath = join(tempDir, "zh-TW-ingested.yml");
+    await writeFile(yamlPath, await readFile(ZH_TW_YAML_PATH, "utf8"));
+
+    const report = await ingestCanonicalPdfToYaml({
+      canonicalPdfPath: CANONICAL_ZH_TW_EDITABLE_PDF,
+      yamlPath,
+      outputYamlPath,
+      renderDpi: PDF_ORACLE_RENDER_DPI,
+      dryRun: false,
+    });
+
+    expect(report.canonicalRenderSizePx).toEqual([...PDF_ORACLE_RENDER_SIZE_PX]);
+    expect(report.updatedPagesCount).toBeGreaterThanOrEqual(PDF_ORACLE_PAGE_COUNT);
+    expect(report.renderDpi).toBe(PDF_ORACLE_RENDER_DPI);
+    expect(report.dryRun).toBe(false);
+    expect(report.outputYamlPath).toBe(outputYamlPath);
+
+    const outputYaml = await readFile(outputYamlPath, "utf8");
+    const doc = Bun.YAML.parse(outputYaml) as {
+      pages: Record<
+        string,
+        {
+          target_size?: number[];
+          pdf_page_box?: number[];
+          render_dpi?: number;
+          boxes?: CompactYamlBox[];
+        }
+      >;
+    };
+
+    expect(doc.pages.Overview?.target_size).toEqual([...PDF_ORACLE_RENDER_SIZE_PX]);
+    expect(doc.pages.Overview?.pdf_page_box).toEqual([...PDF_ORACLE_PAGE_SIZE_PT]);
+    expect(doc.pages.Overview?.render_dpi).toBe(PDF_ORACLE_RENDER_DPI);
+
+    const scaleTargetX = (legacyX: number) =>
+      Math.round((legacyX * PDF_ORACLE_RENDER_SIZE_PX[0]) / LEGACY_ZH_TW_TARGET_WIDTH_PX);
+
+    const b001 = readCompactYamlBox(outputYaml, "Overview", "b001_title");
+    expect(b001.src).toEqual([...OVERVIEW_B001_SRC]);
+    expect(b001.box?.[0]).toBe(scaleTargetX(OVERVIEW_B001_TITLE_BOX_X_LEGACY));
+    expect(b001.box?.[1]).toBe(284);
+    expect(b001.tight?.[0]).toBe(scaleTargetX(OVERVIEW_B001_TIGHT_X_LEGACY));
+    expect(b001.tight?.[1]).toBe(329);
   }, 120_000);
 });

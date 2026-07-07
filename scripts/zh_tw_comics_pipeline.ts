@@ -16,6 +16,7 @@ import { XMLParser } from "fast-xml-parser";
 import JSZip from "jszip";
 
 export type PageId = "Overview" | `Ch${1 | 2 | 3 | 4 | 5 | 6}_${"A" | "B"}`;
+export type CoverPageId = "Cover" | "Cover_Back" | "Cover_Spine";
 export type FontRole = "title" | "body" | "footer";
 export type RenderMode = "vector" | "editable_text" | "oracle_patch";
 export type TextAlign = "left" | "center";
@@ -153,6 +154,8 @@ type CompactYamlPage = {
   md?: string;
   source_size?: unknown;
   target_size?: unknown;
+  pdf_page_box?: unknown;
+  render_dpi?: unknown;
   boxes?: CompactYamlBox[];
   patches?: CompactYamlPatch[];
   blocks?: CompactYamlBlock[];
@@ -163,11 +166,90 @@ type CompactYamlRoot = {
   pages?: Partial<Record<PageId, CompactYamlPage>>;
 };
 
+type CompactCoverYamlPage = {
+  template_image?: string;
+  output_image?: string;
+  target_size?: unknown;
+  boxes?: CompactYamlBox[];
+};
+
+type CompactCoverYamlRoot = {
+  schema?: number;
+  pages?: Partial<Record<CoverPageId, CompactCoverYamlPage>>;
+};
+
 type ParseEditablePptxToYamlResult = {
   yaml_path: string;
   updated: number;
   unknown_shapes: string[];
 };
+
+export type PdfPageModel = {
+  pageSizePt: [number, number];
+  renderDpi: number;
+  renderSizePx?: [number, number];
+  embeddedImageSizePx?: [number, number];
+};
+
+export type InspectCanonicalPdfResult = {
+  pageCount: number;
+  pageSizePt: [number, number];
+  renderSizePx: [number, number];
+  renderDpi: number;
+  pptxSlideSizeIn: [number, number];
+  embeddedImageSizePx?: [number, number];
+};
+
+export type PdfTextRun = {
+  pageIndex: number;
+  text: string;
+  box: [number, number, number, number];
+  fontFamily?: string;
+  fontSize?: number;
+  color?: string;
+  role?: FontRole;
+};
+
+export type ComparePdfOraclePagesResult = {
+  ok: boolean;
+  dimensionMismatch?: boolean;
+  diffPixels?: number;
+  changedRatio?: number;
+  meanAbsDelta?: number;
+  maxDelta?: number;
+  message?: string;
+};
+
+export type PdfOraclePageDiffMetric = {
+  pageId: string;
+  diffPixels?: number;
+  mismatchRatio?: number;
+  dimensionMismatch?: boolean;
+};
+
+export type PdfOracleRoundTripReport = {
+  ok: boolean;
+  canonicalRenderSizePx: [number, number];
+  renderer: { kind: string };
+  incompleteReason?: string;
+  pageRenderSizePx?: [number, number];
+  generatedRenderSizePx?: [number, number];
+  pageDiffs?: PdfOraclePageDiffMetric[];
+};
+export type IngestCanonicalPdfToYamlReport = {
+  canonicalRenderSizePx: [number, number];
+  updatedPagesCount: number;
+  renderDpi: number;
+  dryRun: boolean;
+  outputYamlPath: string;
+};
+
+
+
+export const DEFAULT_ZH_TW_CANONICAL_PDF = "/Users/au/Desktop/zh-TW-editable.pdf";
+export const DEFAULT_ZH_TW_COVER_CANONICAL_PDF = "/Users/au/Documents/zh-TW-cover-editable.pdf";
+
+
 
 export type OrderedXmlNode = Record<string, unknown>;
 
@@ -216,11 +298,14 @@ export const ASSETS_ROOT = join(PROJECT_ROOT, "translation-assets", "zh-TW");
 export const ZH_TW_YAML_PATH = join(PROJECT_ROOT, "translation-assets", "zh-TW.yml");
 export const RAW_OCR_DIR = join(ASSETS_ROOT, "ocr", "raw");
 export const TEXT_SPEC_DIR = join(ASSETS_ROOT, "text");
+export const ZH_TW_COVER_YAML_PATH = join(PROJECT_ROOT, "translation-assets", "zh-TW-cover.yml");
+export const COVER_TEXT_SPEC_DIR = join(ASSETS_ROOT, "cover-text");
 export const REVIEW_DIR = join(ASSETS_ROOT, "review");
 export const SOURCE_IMAGE_ROOT = "/Users/au/w/civic.ai/img";
 export const WORDLESS_ROOT = join(PROJECT_ROOT, "comics-wordless");
 export const OUTPUT_ROOT = join(PROJECT_ROOT, "comics-zh-TW");
 export const PPTX_OUTPUT_PATH = join(OUTPUT_ROOT, "zh-TW-editable.pptx");
+export const COVER_PPTX_OUTPUT_PATH = join(OUTPUT_ROOT, "zh-TW-cover-editable.pptx");
 export const ENGLISH_ROOT = join(PROJECT_ROOT, "comics-en");
 export const BOOK_COVER_ROOT = join(PROJECT_ROOT, "book-cover");
 
@@ -228,16 +313,171 @@ const PPTX_RENDER_DPI = 600;
 const PPTX_SLIDE_WIDTH_IN = 5749 / PPTX_RENDER_DPI;
 const PPTX_SLIDE_HEIGHT_IN = 8000 / PPTX_RENDER_DPI;
 const PPTX_LAYOUT_NAME = "ZH_TW_COMIC_PAGE";
+const COVER_PPTX_LAYOUT_NAME = "ZH_TW_BOOK_COVER";
 const PPTX_BACKGROUND_MAX_HEIGHT = 2000;
 const PPTX_EMU_PER_INCH = 914400;
 const PPTX_EMU_PER_RENDER_PX = PPTX_EMU_PER_INCH / PPTX_RENDER_DPI;
+
+function runCommandText(args: string[]): string {
+  const result = Bun.spawnSync(args, { stdout: "pipe", stderr: "pipe" });
+  const stdout = new TextDecoder().decode(result.stdout);
+  const stderr = new TextDecoder().decode(result.stderr);
+  if (result.exitCode !== 0) {
+    throw new VerificationError(`${args.join(" ")} failed with exit ${result.exitCode}: ${stderr.trim()}`);
+  }
+  return stdout;
+}
+
+function renderSizeFromPageBox(pageSizePt: readonly [number, number], renderDpi: number): [number, number] {
+  return [Math.round((pageSizePt[0] * renderDpi) / 72), Math.round((pageSizePt[1] * renderDpi) / 72)];
+}
+
+function slideSizeInchesFromPageBox(pageSizePt: readonly [number, number]): [number, number] {
+  return [pageSizePt[0] / 72, pageSizePt[1] / 72];
+}
+
+function pageModelRenderSize(model: PdfPageModel): [number, number] {
+  return model.renderSizePx ?? renderSizeFromPageBox(model.pageSizePt, model.renderDpi);
+}
+
+function parseFirstPdfImageSize(pdfPath: string): [number, number] | undefined {
+  const output = runCommandText(["pdfimages", "-list", pdfPath]);
+  for (const line of output.split(/\r?\n/)) {
+    const match = line.trim().match(/^\d+\s+\d+\s+image\s+(\d+)\s+(\d+)\b/);
+    if (match) return [Number(match[1]), Number(match[2])];
+  }
+  return undefined;
+}
+
+export async function inspectCanonicalPdf(
+  pdfPath = DEFAULT_ZH_TW_CANONICAL_PDF,
+  options: { renderDpi?: number } = {},
+): Promise<InspectCanonicalPdfResult> {
+  const resolvedPdfPath = resolveProjectPath(pdfPath);
+  const renderDpi = options.renderDpi ?? PPTX_RENDER_DPI;
+  const info = runCommandText(["pdfinfo", resolvedPdfPath]);
+  const pageCount = Number(info.match(/^Pages:\s+(\d+)/m)?.[1]);
+  const sizeMatch = info.match(/^Page size:\s+([\d.]+)\s+x\s+([\d.]+)\s+pts\b/m);
+  if (!Number.isFinite(pageCount) || !sizeMatch) {
+    throw new VerificationError(`Unable to inspect PDF page metadata: ${resolvedPdfPath}`);
+  }
+  const pageSizePt = [Math.round(Number(sizeMatch[1])), Math.round(Number(sizeMatch[2]))] as [number, number];
+  const renderSizePx = renderSizeFromPageBox(pageSizePt, renderDpi);
+  return {
+    pageCount,
+    pageSizePt,
+    renderSizePx,
+    renderDpi,
+    pptxSlideSizeIn: slideSizeInchesFromPageBox(pageSizePt),
+    embeddedImageSizePx: parseFirstPdfImageSize(resolvedPdfPath),
+  };
+}
+
+function xmlAttributes(raw: string): Record<string, string> {
+  const attrs: Record<string, string> = {};
+  for (const match of raw.matchAll(/\s([A-Za-z_:][\w:.-]*)="([^"]*)"/g)) {
+    attrs[match[1]!] = decodeXmlEntities(match[2]!);
+  }
+  return attrs;
+}
+
+function decodeXmlEntities(text: string): string {
+  return text
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
+function normalizePdfExtractedText(text: string): string {
+  return decodeXmlEntities(text)
+    .replace(/\u00a0/g, " ")
+    .trimEnd()
+    .replace(/不是！/g, "不是：")
+    .replace(/而是！/g, "而是：");
+}
+
+function pdfRunRole(fontFamily: string | undefined): FontRole {
+  return /lanyanghei|蘭陽黑/i.test(fontFamily ?? "") ? "title" : "body";
+}
+
+export async function extractPdfTextRuns(pdfPath: string, pageIndex: number): Promise<PdfTextRun[]> {
+  const resolvedPdfPath = resolveProjectPath(pdfPath);
+  const report = await inspectCanonicalPdf(resolvedPdfPath);
+  const xml = runCommandText([
+    "pdftohtml",
+    "-xml",
+    "-i",
+    "-f",
+    String(pageIndex),
+    "-l",
+    String(pageIndex),
+    "-stdout",
+    resolvedPdfPath,
+  ]);
+  const pageAttrs = xmlAttributes(xml.match(/<page\b([^>]*)>/)?.[1] ?? "");
+  const xmlWidth = Number(pageAttrs.width);
+  const xmlHeight = Number(pageAttrs.height);
+  if (!Number.isFinite(xmlWidth) || !Number.isFinite(xmlHeight) || xmlWidth <= 0 || xmlHeight <= 0) {
+    throw new VerificationError(`Unable to read pdftohtml page dimensions for page ${pageIndex}`);
+  }
+  const [renderWidth, renderHeight] = report.renderSizePx;
+  const scaleX = renderWidth / xmlWidth;
+  const scaleY = renderHeight / xmlHeight;
+  const fonts = new Map<string, { family?: string; size?: number; color?: string }>();
+  for (const match of xml.matchAll(/<fontspec\b([^>]*)\/>/g)) {
+    const attrs = xmlAttributes(match[1]!);
+    fonts.set(String(attrs.id), {
+      family: attrs.family,
+      size: Number.isFinite(Number(attrs.size)) ? Number(attrs.size) : undefined,
+      color: hexColorOverride(attrs.color),
+    });
+  }
+  const runs: PdfTextRun[] = [];
+  for (const match of xml.matchAll(/<text\b([^>]*)>([\s\S]*?)<\/text>/g)) {
+    const attrs = xmlAttributes(match[1]!);
+    const text = normalizePdfExtractedText(match[2] ?? "");
+    if (!text.trim()) continue;
+    const font = fonts.get(String(attrs.font));
+    const left = Number(attrs.left);
+    const top = Number(attrs.top);
+    const width = Number(attrs.width);
+    const height = Number(attrs.height);
+    if (![left, top, width, height].every(Number.isFinite)) continue;
+    const x0 = Math.round(left * scaleX);
+    const y0 = Math.round(top * scaleY);
+    const x1 = Math.round((left + width) * scaleX);
+    const y1 = Math.round((top + height) * scaleY);
+    const fontFamily = font?.family?.replace(/^[A-Z]{6}\+/, "");
+    runs.push({
+      pageIndex,
+      text,
+      box: [x0, y0, x1, y1],
+      fontFamily,
+      fontSize: font?.size === undefined ? undefined : Math.round(font.size * scaleY),
+      color: font?.color,
+      role: pdfRunRole(fontFamily),
+    });
+  }
+  return runs;
+}
+
 const PPTX_XML_PARSER = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: "@_",
   preserveOrder: true,
   textNodeName: "#text",
+  trimValues: false,
 });
 export const COVER_IMAGE_NAMES = ["Cover.png", "Cover_Back.png", "Cover_Spine.png"] as const;
+export const COVER_EXTRA_IMAGE_NAMES = [join("extras", "with longer author name.png")] as const;
+export const COVER_PAGE_ORDER = ["Cover", "Cover_Back", "Cover_Spine"] as const satisfies readonly CoverPageId[];
+export const COVER_TEMPLATE_IMAGE_NAMES: Record<CoverPageId, string> = {
+  Cover: "Cover.png",
+  Cover_Back: "Cover_Back.png",
+  Cover_Spine: "Cover_Spine.png",
+};
 
 
 export const PAGE_ORDER = [
@@ -438,6 +678,8 @@ export function cleanOcrContent(content: string): string {
 }
 
 
+const NO_LINE_START_PUNCTUATION = /[，。、；：！？）》」』】）,.!?;:]/u;
+
 export function wrapTextPreserveBreaks(text: string, font: FontSpec, maxWidthPx: number): string {
   const maxWidth = Math.max(1, maxWidthPx);
   const wrappedLines: string[] = [];
@@ -450,9 +692,15 @@ export function wrapTextPreserveBreaks(text: string, font: FontSpec, maxWidthPx:
     let lastBreakableAt = -1;
     for (const char of segmentText(explicitLine)) {
       const candidate = current + char;
-      if (/\s/.test(char) || /[，。、；：！？）》」』】）]/.test(char)) lastBreakableAt = current.length + char.length;
+      const cannotStartLine = NO_LINE_START_PUNCTUATION.test(char);
+      const breakableAt = /\s/.test(char) || cannotStartLine ? current.length + char.length : -1;
       if (current && textWidth(candidate, font) > maxWidth) {
-        if (lastBreakableAt > 0 && lastBreakableAt < candidate.length) {
+        if (cannotStartLine && lastBreakableAt > 0 && lastBreakableAt < current.length) {
+          wrappedLines.push(candidate.slice(0, lastBreakableAt).trimEnd());
+          current = candidate.slice(lastBreakableAt).trimStart();
+        } else if (cannotStartLine) {
+          current = candidate;
+        } else if (lastBreakableAt > 0 && lastBreakableAt < candidate.length) {
           wrappedLines.push(candidate.slice(0, lastBreakableAt).trimEnd());
           current = candidate.slice(lastBreakableAt).trimStart();
         } else {
@@ -462,6 +710,7 @@ export function wrapTextPreserveBreaks(text: string, font: FontSpec, maxWidthPx:
         lastBreakableAt = -1;
       } else {
         current = candidate;
+        if (breakableAt > 0) lastBreakableAt = breakableAt;
       }
     }
     if (current) wrappedLines.push(current.trimEnd());
@@ -635,6 +884,63 @@ async function specFromCompactYamlPage(pageId: PageId, page: CompactYamlPage): P
   return spec;
 }
 
+export async function loadCoverTextSpecs(yamlPath = ZH_TW_COVER_YAML_PATH): Promise<Record<CoverPageId, TextSpec>> {
+  const loaded = Bun.YAML.parse(await readFile(yamlPath, "utf8")) as CompactCoverYamlRoot;
+  if (loaded?.schema !== 1) throw new VerificationError(`unsupported zh-TW cover YAML schema: ${loaded?.schema}`);
+  if (!loaded.pages || typeof loaded.pages !== "object") throw new VerificationError("zh-TW cover YAML has no pages map");
+
+  const specs = {} as Record<CoverPageId, TextSpec>;
+  for (const pageId of COVER_PAGE_ORDER) {
+    const page = loaded.pages[pageId];
+    if (!page) throw new VerificationError(`zh-TW cover YAML missing page: ${pageId}`);
+    specs[pageId] = specFromCompactCoverYamlPage(pageId, page);
+  }
+  return specs;
+}
+
+function specFromCompactCoverYamlPage(pageId: CoverPageId, page: CompactCoverYamlPage): TextSpec {
+  if (!Array.isArray(page.boxes) || page.boxes.length === 0) {
+    throw new VerificationError(`zh-TW cover YAML page ${pageId} has no boxes`);
+  }
+  const templateName = page.template_image ?? join("book-cover", "wordless", COVER_TEMPLATE_IMAGE_NAMES[pageId]);
+  const outputName = page.output_image ?? COVER_TEMPLATE_IMAGE_NAMES[pageId];
+  const targetSize = requiredSizeFromCompactYaml(page.target_size, `zh-TW cover YAML ${pageId} target_size`);
+  const boxes = page.boxes.map((box, index) => boxFromCompactCoverYamlBox(pageId, box, index));
+  const spec: TextSpec = {
+    schema_version: 1,
+    image: pageId,
+    template_image: templateName,
+    output_image: outputName,
+    target_size: [targetSize.width, targetSize.height],
+    boxes,
+  };
+  verifyTextSpec(spec, boxes.map((box) => box.id));
+  return spec;
+}
+
+function boxFromCompactCoverYamlBox(pageId: CoverPageId, box: CompactYamlBox, index: number): BoxSpec {
+  if (!box || typeof box !== "object") throw new VerificationError(`zh-TW cover YAML ${pageId} box ${index} is invalid`);
+  const id = box.id?.trim();
+  if (!id) throw new VerificationError(`zh-TW cover YAML ${pageId} box ${index} has no id`);
+  const type = box.type ?? "text";
+  const role = box.role ?? (type === "title" ? "title" : "body");
+  const targetBox = requiredCoordinateBox(box.box, `zh-TW cover YAML ${pageId} box ${index} box`);
+  const emphasis = emphasisOverride(box.emphasis);
+  return {
+    id,
+    ocr_type: type,
+    font_role: role,
+    text: box.text ?? "",
+    box: targetBox,
+    tight_box: requiredCoordinateBox(box.tight ?? box.box, `zh-TW cover YAML ${pageId} box ${index} tight`),
+    font_size: box.font === undefined ? 100 : requiredNonNegativeNumber(box.font, `zh-TW cover YAML ${pageId} box ${index} font`),
+    ...(box.line !== undefined ? { line_spacing: requiredNonNegativeNumber(box.line, `zh-TW cover YAML ${pageId} box ${index} line`) } : {}),
+    color: box.color ?? "#222222",
+    align: box.align === "center" || box.align === "left" ? box.align : "left",
+    ...(emphasis ? { emphasis } : {}),
+  };
+}
+
 function boxFromCompactYamlBox(pageId: PageId, box: CompactYamlBox, index: number): BoxSpec {
   if (!box || typeof box !== "object") throw new VerificationError(`zh-TW YAML ${pageId} box ${index} is invalid`);
   const id = box.id?.trim();
@@ -750,6 +1056,18 @@ export async function buildTextSpecs(inputPath = ZH_TW_YAML_PATH, textDir = TEXT
   const specs = await loadYamlTextSpecs(inputLooksLikeYaml(inputPath) ? inputPath : ZH_TW_YAML_PATH);
   const written: string[] = [];
   for (const pageId of PAGE_ORDER) {
+    const outPath = join(textDir, `${pageId}.json`);
+    await writeJson(outPath, specs[pageId]);
+    written.push(outPath);
+  }
+  return written;
+}
+
+export async function buildCoverTextSpecs(yamlPath = ZH_TW_COVER_YAML_PATH, textDir = COVER_TEXT_SPEC_DIR): Promise<string[]> {
+  await mkdir(textDir, { recursive: true });
+  const specs = await loadCoverTextSpecs(yamlPath);
+  const written: string[] = [];
+  for (const pageId of COVER_PAGE_ORDER) {
     const outPath = join(textDir, `${pageId}.json`);
     await writeJson(outPath, specs[pageId]);
     written.push(outPath);
@@ -890,6 +1208,49 @@ export async function compareRenderedPageToSource(
   };
 }
 
+export async function comparePdfOraclePages(
+  leftPngPath: string,
+  rightPngPath: string,
+  options: { renderDpi?: number; threshold?: number } = {},
+): Promise<ComparePdfOraclePagesResult> {
+  const left = await imageSize(resolveProjectPath(leftPngPath));
+  const right = await imageSize(resolveProjectPath(rightPngPath));
+  if (left.width !== right.width || left.height !== right.height) {
+    return {
+      ok: false,
+      dimensionMismatch: true,
+      diffPixels: 0,
+      message: `dimension mismatch: ${left.width}x${left.height} vs ${right.width}x${right.height}`,
+    };
+  }
+  const threshold = options.threshold ?? 32;
+  const leftCanvas = await loadCanvasFromFile(resolveProjectPath(leftPngPath));
+  const rightCanvas = await loadCanvasFromFile(resolveProjectPath(rightPngPath));
+  const leftData = leftCanvas.getContext("2d").getImageData(0, 0, left.width, left.height).data;
+  const rightData = rightCanvas.getContext("2d").getImageData(0, 0, right.width, right.height).data;
+  let diffPixels = 0;
+  let totalAbs = 0;
+  let maxDelta = 0;
+  for (let index = 0; index < leftData.length; index += 4) {
+    const red = Math.abs(leftData[index]! - rightData[index]!);
+    const green = Math.abs(leftData[index + 1]! - rightData[index + 1]!);
+    const blue = Math.abs(leftData[index + 2]! - rightData[index + 2]!);
+    const delta = Math.max(red, green, blue);
+    if (delta > threshold) diffPixels += 1;
+    totalAbs += red + green + blue;
+    maxDelta = Math.max(maxDelta, delta);
+  }
+  const totalPixels = left.width * left.height;
+  return {
+    ok: diffPixels === 0,
+    diffPixels,
+    changedRatio: totalPixels === 0 ? 0 : diffPixels / totalPixels,
+    meanAbsDelta: totalPixels === 0 ? 0 : totalAbs / (totalPixels * 3),
+    maxDelta,
+  };
+}
+
+
 export async function generateDiffMasks(
   textDir = TEXT_SPEC_DIR,
   outputRoot = OUTPUT_ROOT,
@@ -965,7 +1326,6 @@ export async function renderFooter(outputPath = join(OUTPUT_ROOT, "web_footer.pn
   const spacing = lineSpacing(font);
   let y = box[1] + Math.max(0, (box[3] - box[1] - height) / 2);
   ctx.font = cssFont(font);
-  ctx.fillStyle = "#666666";
   ctx.textBaseline = "top";
   for (const line of lines) {
     const x = box[0] + Math.max(0, (box[2] - box[0] - textWidth(line, font)) / 2);
@@ -975,6 +1335,87 @@ export async function renderFooter(outputPath = join(OUTPUT_ROOT, "web_footer.pn
   void widest;
   await saveCanvasPng(canvas, outputPath);
   return outputPath;
+}
+
+function nonWhiteCanvasBounds(canvas: Canvas): [number, number, number, number] {
+  const { width, height } = canvas;
+  const data = canvas.getContext("2d").getImageData(0, 0, width, height).data;
+  let minX = width;
+  let minY = height;
+  let maxX = 0;
+  let maxY = 0;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = (y * width + x) * 4;
+      if (data[index]! >= 250 && data[index + 1]! >= 250 && data[index + 2]! >= 250) continue;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+  if (minX > maxX || minY > maxY) return [0, 0, width, height];
+  return [minX, minY, maxX + 1, maxY + 1];
+}
+
+export async function renderCoverAssetsFromCanonicalPdf(
+  pdfPath = DEFAULT_ZH_TW_COVER_CANONICAL_PDF,
+  outputRoot = OUTPUT_ROOT,
+): Promise<string[]> {
+  await mkdir(outputRoot, { recursive: true });
+  const pages = await renderPdfPages(resolveProjectPath(pdfPath), join(REVIEW_DIR, "cover-pdf-pages"), PPTX_RENDER_DPI, "cover-page");
+  if (pages.length < COVER_PAGE_ORDER.length) {
+    throw new VerificationError(`cover canonical PDF has ${pages.length} pages; expected ${COVER_PAGE_ORDER.length}`);
+  }
+  const written: string[] = [];
+  const front = join(outputRoot, COVER_TEMPLATE_IMAGE_NAMES.Cover);
+  const back = join(outputRoot, COVER_TEMPLATE_IMAGE_NAMES.Cover_Back);
+  await copyFile(pages[0]!, front);
+  await copyFile(pages[1]!, back);
+  written.push(front, back);
+  const spinePage = await loadCanvasFromFile(pages[2]!);
+  const [x0, y0, x1, y1] = nonWhiteCanvasBounds(spinePage);
+  const spine = createCanvas(x1 - x0, y1 - y0);
+  spine.getContext("2d").drawImage(spinePage, x0, y0, x1 - x0, y1 - y0, 0, 0, x1 - x0, y1 - y0);
+  const spinePath = join(outputRoot, COVER_TEMPLATE_IMAGE_NAMES.Cover_Spine);
+  await saveCanvasPng(spine, spinePath);
+  written.push(spinePath);
+  return written;
+}
+
+export async function renderComicAssetsFromCanonicalPdf(
+  pdfPath = DEFAULT_ZH_TW_CANONICAL_PDF,
+  outputRoot = OUTPUT_ROOT,
+): Promise<string[]> {
+  await mkdir(outputRoot, { recursive: true });
+  const pages = await renderPdfPages(resolveProjectPath(pdfPath), join(REVIEW_DIR, "comic-pdf-pages"), PPTX_RENDER_DPI, "comic-page");
+  if (pages.length < PAGE_ORDER.length) {
+    throw new VerificationError(`canonical PDF has ${pages.length} pages; expected ${PAGE_ORDER.length}`);
+  }
+  const written: string[] = [];
+  for (let index = 0; index < PAGE_ORDER.length; index += 1) {
+    const pageId = PAGE_ORDER[index]!;
+    const destination = join(outputRoot, TEMPLATE_IMAGE_NAMES[pageId]);
+    await copyFile(pages[index]!, destination);
+    written.push(destination);
+  }
+  return written;
+}
+
+export async function renderCoverAssets(textDir = COVER_TEXT_SPEC_DIR, outputRoot = OUTPUT_ROOT): Promise<string[]> {
+  if (existsSync(DEFAULT_ZH_TW_COVER_CANONICAL_PDF)) return renderCoverAssetsFromCanonicalPdf(DEFAULT_ZH_TW_COVER_CANONICAL_PDF, outputRoot);
+  await mkdir(outputRoot, { recursive: true });
+  const rendered: string[] = [];
+  for (const pageId of COVER_PAGE_ORDER) {
+    const spec = JSON.parse(await readFile(join(textDir, `${pageId}.json`), "utf8")) as TextSpec;
+    const outputName = String(spec.output_image ?? COVER_TEMPLATE_IMAGE_NAMES[pageId]);
+    rendered.push(await renderPage(spec, join(outputRoot, outputName)));
+  }
+  const frontSpec = JSON.parse(await readFile(join(textDir, "Cover.json"), "utf8")) as TextSpec;
+  for (const name of COVER_EXTRA_IMAGE_NAMES) {
+    rendered.push(await renderPage(frontSpec, join(outputRoot, name)));
+  }
+  return rendered;
 }
 
 export async function copyCoverAssets(
@@ -994,12 +1435,20 @@ export async function copyCoverAssets(
 export async function renderAll(textDir = TEXT_SPEC_DIR, outputRoot = OUTPUT_ROOT): Promise<string[]> {
   await mkdir(outputRoot, { recursive: true });
   const rendered: string[] = [];
-  for (const pageId of PAGE_ORDER) {
-    const spec = JSON.parse(await readFile(join(textDir, `${pageId}.json`), "utf8")) as TextSpec;
-    rendered.push(await renderPage(spec, join(outputRoot, TEMPLATE_IMAGE_NAMES[pageId])));
-    rendered.push(await renderReviewOverlay(spec));
+  if (existsSync(DEFAULT_ZH_TW_CANONICAL_PDF)) {
+    rendered.push(...(await renderComicAssetsFromCanonicalPdf(DEFAULT_ZH_TW_CANONICAL_PDF, outputRoot)));
+    for (const pageId of PAGE_ORDER) {
+      const spec = JSON.parse(await readFile(join(textDir, `${pageId}.json`), "utf8")) as TextSpec;
+      rendered.push(await renderReviewOverlay(spec));
+    }
+  } else {
+    for (const pageId of PAGE_ORDER) {
+      const spec = JSON.parse(await readFile(join(textDir, `${pageId}.json`), "utf8")) as TextSpec;
+      rendered.push(await renderPage(spec, join(outputRoot, TEMPLATE_IMAGE_NAMES[pageId])));
+      rendered.push(await renderReviewOverlay(spec));
+    }
   }
-  rendered.push(...(await copyCoverAssets(BOOK_COVER_ROOT, outputRoot)));
+  rendered.push(...(await renderCoverAssets(COVER_TEXT_SPEC_DIR, outputRoot)));
   rendered.push(await renderFooter(join(outputRoot, "web_footer.png")));
   return rendered;
 }
@@ -1031,13 +1480,28 @@ export async function buildWebAssets(outputRoot = OUTPUT_ROOT): Promise<string[]
 }
 
 export async function buildEditablePptx(outputPath = PPTX_OUTPUT_PATH): Promise<string> {
-  const specs = await loadYamlTextSpecs();
+  return buildEditablePptxFromYaml({ yamlPath: ZH_TW_YAML_PATH, outputPath });
+}
+
+export async function buildEditablePptxFromYaml(options: {
+  yamlPath: string;
+  outputPath: string;
+  pdfPageModel?: PdfPageModel;
+  pageBackgrounds?: Partial<Record<PageId, string>>;
+  textTransparency?: number;
+}): Promise<string> {
+  const { yamlPath, outputPath, pdfPageModel, pageBackgrounds, textTransparency } = options;
+  const specs = await loadYamlTextSpecs(yamlPath);
+  const defaultTargetSize = requiredSizeFromCompactYaml(specs[PAGE_ORDER[0]!]!.target_size, `zh-TW YAML ${PAGE_ORDER[0]!} target_size`);
   const pptx = new PptxGenJS();
   pptx.author = "Civic.AI Comics";
   pptx.company = "Civic.AI";
   pptx.subject = "Editable zh-TW comic pages";
   pptx.title = "Civic.AI Comics zh-TW editable";
-  pptx.defineLayout({ name: PPTX_LAYOUT_NAME, width: PPTX_SLIDE_WIDTH_IN, height: PPTX_SLIDE_HEIGHT_IN });
+  const slideWidthIn = pdfPageModel ? pdfPageModel.pageSizePt[0] / 72 : defaultTargetSize.width / PPTX_RENDER_DPI;
+  const slideHeightIn = pdfPageModel ? pdfPageModel.pageSizePt[1] / 72 : defaultTargetSize.height / PPTX_RENDER_DPI;
+  const coordinateSize = pdfPageModel ? pageModelRenderSize(pdfPageModel) : [defaultTargetSize.width, defaultTargetSize.height];
+  pptx.defineLayout({ name: PPTX_LAYOUT_NAME, width: slideWidthIn, height: slideHeightIn });
   pptx.layout = PPTX_LAYOUT_NAME;
 
   const backgroundDir = join(REVIEW_DIR, "pptx-backgrounds");
@@ -1047,8 +1511,8 @@ export async function buildEditablePptx(outputPath = PPTX_OUTPUT_PATH): Promise<
   for (const pageId of PAGE_ORDER) {
     const spec = specs[pageId];
     const slide = pptx.addSlide();
-    const backgroundPath = await renderPptxBackground(spec, join(backgroundDir, `${pageId}.png`));
-    slide.background = { path: backgroundPath };
+    const backgroundPath = pageBackgrounds?.[pageId] ?? await renderPptxBackground(spec, join(backgroundDir, `${pageId}.png`));
+    slide.background = { path: resolveProjectPath(backgroundPath) };
 
     for (const box of spec.boxes ?? []) {
       const rect = box.box?.map(Number);
@@ -1056,7 +1520,298 @@ export async function buildEditablePptx(outputPath = PPTX_OUTPUT_PATH): Promise<
       const [x0, y0, x1, y1] = rect;
       slide.addText(pptxTextValue(box), {
         objectName: String(box.id),
-        x: pxToPptxInches(x0!),
+        x: pdfPageModel ? (x0! / coordinateSize[0]!) * slideWidthIn : pxToPptxInches(x0!),
+        y: pdfPageModel ? (y0! / coordinateSize[1]!) * slideHeightIn : pxToPptxInches(y0!),
+        w: pdfPageModel ? ((x1! - x0!) / coordinateSize[0]!) * slideWidthIn : pxToPptxInches(x1! - x0!),
+        h: pdfPageModel ? ((y1! - y0!) / coordinateSize[1]!) * slideHeightIn : pxToPptxInches(y1! - y0!),
+        fontFace: pptxFontFace(normalizeRole(String(box.font_role ?? box.ocr_type ?? "body"))),
+        fontSize: pxToPptxPoints(Number(box.font_size ?? 100)),
+        ...(textTransparency === undefined ? {} : { transparency: textTransparency }),
+        color: pptxHexColor(box.color),
+        align: box.align === "center" ? "center" : "left",
+        valign: "middle",
+        margin: 0,
+        fit: "shrink",
+        breakLine: false,
+        fill: { color: "FFFFFF", transparency: 100 },
+        line: { color: "FFFFFF", transparency: 100 },
+      });
+    }
+  }
+  await pptx.writeFile({ fileName: outputPath });
+  return outputPath;
+}
+
+function appleScriptString(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+}
+
+async function exportPptxToPdfWithKeynote(pptxPath: string, pdfPath: string): Promise<void> {
+  await mkdir(dirname(pdfPath), { recursive: true });
+  const scriptPath = join(dirname(pdfPath), "export-pptx-to-pdf.applescript");
+  await writeFile(
+    scriptPath,
+    [
+      `tell application "Keynote Creator Studio"`,
+      `  set openedDocument to open POSIX file "${appleScriptString(pptxPath)}"`,
+      `  export openedDocument to POSIX file "${appleScriptString(pdfPath)}" as PDF`,
+      `  close openedDocument saving no`,
+      `end tell`,
+      "",
+    ].join("\n"),
+  );
+  runCommandText(["osascript", scriptPath]);
+}
+
+export function sortPdfRenderedPagePaths(paths: string[]): string[] {
+  return [...paths].sort((left, right) => {
+    const leftPage = Number(left.match(/-(\d+)\.png$/)?.[1] ?? Number.POSITIVE_INFINITY);
+    const rightPage = Number(right.match(/-(\d+)\.png$/)?.[1] ?? Number.POSITIVE_INFINITY);
+    return leftPage === rightPage ? left.localeCompare(right) : leftPage - rightPage;
+  });
+}
+
+async function renderPdfPages(pdfPath: string, outputDir: string, renderDpi: number, prefix: string): Promise<string[]> {
+  await mkdir(outputDir, { recursive: true });
+  runCommandText(["pdftoppm", "-r", String(renderDpi), "-png", pdfPath, join(outputDir, prefix)]);
+  const paths = (await readdir(outputDir))
+    .filter((name) => name.startsWith(`${prefix}-`) && name.endsWith(".png"))
+    .map((name) => join(outputDir, name));
+  return sortPdfRenderedPagePaths(paths);
+}
+
+export async function diffPdfOracleRenderedPageLists(
+  canonicalPaths: string[],
+  generatedPaths: string[],
+  options: { renderDpi?: number } = {},
+): Promise<PdfOracleRoundTripReport> {
+  const canonicalPages = sortPdfRenderedPagePaths(canonicalPaths);
+  const generatedPages = sortPdfRenderedPagePaths(generatedPaths);
+  const canonicalFirstSize = canonicalPages[0] ? await imageSize(canonicalPages[0]) : undefined;
+  const generatedFirstSize = generatedPages[0] ? await imageSize(generatedPages[0]) : undefined;
+  const canonicalRenderSizePx: [number, number] = canonicalFirstSize ? [canonicalFirstSize.width, canonicalFirstSize.height] : [0, 0];
+  if (canonicalPages.length !== generatedPages.length) {
+    return {
+      ok: false,
+      canonicalRenderSizePx,
+      renderer: { kind: "incomplete" },
+      incompleteReason: `PDF page count mismatch before pixel diff: canonical ${canonicalPages.length}, generated ${generatedPages.length}`,
+      pageRenderSizePx: canonicalRenderSizePx,
+      generatedRenderSizePx: generatedFirstSize ? [generatedFirstSize.width, generatedFirstSize.height] as [number, number] : undefined,
+      pageDiffs: [],
+    };
+  }
+  const pageDiffs: PdfOraclePageDiffMetric[] = [];
+  let allPagesMatched = true;
+  for (let index = 0; index < canonicalPages.length; index += 1) {
+    const comparison = await comparePdfOraclePages(canonicalPages[index]!, generatedPages[index]!, { renderDpi: options.renderDpi });
+    allPagesMatched &&= comparison.ok;
+    pageDiffs.push({
+      pageId: PAGE_ORDER[index] ?? `page-${index + 1}`,
+      diffPixels: comparison.diffPixels,
+      mismatchRatio: comparison.changedRatio,
+      dimensionMismatch: comparison.dimensionMismatch,
+    });
+  }
+  return {
+    ok: allPagesMatched,
+    canonicalRenderSizePx,
+    renderer: { kind: "pptx-pdf" },
+    pageRenderSizePx: canonicalRenderSizePx,
+    generatedRenderSizePx: generatedFirstSize ? [generatedFirstSize.width, generatedFirstSize.height] as [number, number] : undefined,
+    pageDiffs,
+  };
+}
+
+function scaleTargetBox(value: unknown, scaleX: number, scaleY: number): number[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const scaled = value.map((entry, index) => {
+    const numberValue = Number(entry);
+    if (!Number.isFinite(numberValue)) return Number.NaN;
+    return Math.round(numberValue * (index % 2 === 0 ? scaleX : scaleY));
+  });
+  return scaled.every(Number.isFinite) ? scaled : undefined;
+}
+
+
+function scaleTargetEntries(lines: string[], pageId: string, entries: { id?: string; box?: unknown; tight?: unknown }[] | undefined, scaleX: number, scaleY: number): void {
+  if (!entries) return;
+  for (const entry of entries) {
+    if (!entry.id) continue;
+    const box = scaleTargetBox(entry.box, scaleX, scaleY);
+    const tight = scaleTargetBox(entry.tight, scaleX, scaleY);
+    if (box) replaceYamlBoxScalar(lines, pageId, String(entry.id), "box", formatYamlNumberArray(box));
+    if (tight) replaceYamlBoxScalar(lines, pageId, String(entry.id), "tight", formatYamlNumberArray(tight));
+  }
+}
+
+function replaceYamlPageScalar(lines: string[], pageId: string, field: string, value: string): boolean {
+  const range = findYamlPageLineRange(lines, pageId);
+  const replacement = `    ${field}: ${value}`;
+  for (let index = range.start + 1; index < range.end; index += 1) {
+    if (!lines[index]?.startsWith(`    ${field}:`)) continue;
+    if (lines[index] === replacement) return false;
+    lines.splice(index, 1, replacement);
+    return true;
+  }
+  const refreshedRange = findYamlPageLineRange(lines, pageId);
+  let targetSizeLine: number | undefined;
+  for (let index = refreshedRange.start + 1; index < refreshedRange.end; index += 1) {
+    if (lines[index]?.startsWith("    target_size:")) {
+      targetSizeLine = index;
+      break;
+    }
+  }
+  lines.splice((targetSizeLine ?? refreshedRange.start) + 1, 0, replacement);
+  return true;
+}
+
+export async function ingestCanonicalPdfToYaml(options: {
+  canonicalPdfPath: string;
+  yamlPath: string;
+  outputYamlPath: string;
+  renderDpi?: number;
+  dryRun?: boolean;
+}): Promise<IngestCanonicalPdfToYamlReport> {
+  const renderDpi = options.renderDpi ?? PPTX_RENDER_DPI;
+  const dryRun = options.dryRun ?? false;
+  const pdf = await inspectCanonicalPdf(options.canonicalPdfPath, { renderDpi });
+  const yamlPath = resolveProjectPath(options.yamlPath);
+  const outputYamlPath = resolveProjectPath(options.outputYamlPath);
+  const yamlText = await readFile(yamlPath, "utf8");
+  const trailingNewline = yamlText.endsWith("\n");
+  const lines = yamlText.replace(/\n$/, "").split("\n");
+  const root = Bun.YAML.parse(yamlText) as CompactYamlRoot;
+  if (!root.pages) root.pages = {};
+  let updatedPagesCount = 0;
+  for (const pageId of PAGE_ORDER) {
+    const page = root.pages[pageId];
+    if (!page) continue;
+    const oldTarget = requiredSizeFromCompactYaml(page.target_size, `zh-TW YAML ${pageId} target_size`);
+    const scaleX = pdf.renderSizePx[0] / oldTarget.width;
+    const scaleY = pdf.renderSizePx[1] / oldTarget.height;
+    replaceYamlPageScalar(lines, pageId, "target_size", formatYamlNumberArray(pdf.renderSizePx));
+    replaceYamlPageScalar(lines, pageId, "pdf_page_box", formatYamlNumberArray(pdf.pageSizePt));
+    replaceYamlPageScalar(lines, pageId, "render_dpi", String(renderDpi));
+    scaleTargetEntries(lines, pageId, page.boxes, scaleX, scaleY);
+    scaleTargetEntries(lines, pageId, page.patches, scaleX, scaleY);
+    scaleTargetEntries(lines, pageId, page.blocks, scaleX, scaleY);
+    updatedPagesCount += 1;
+  }
+  if (!dryRun) {
+    await mkdir(dirname(outputYamlPath), { recursive: true });
+    await writeFile(outputYamlPath, `${lines.join("\n")}${trailingNewline ? "\n" : ""}`);
+  }
+  return {
+    canonicalRenderSizePx: pdf.renderSizePx,
+    updatedPagesCount,
+    renderDpi,
+    dryRun,
+    outputYamlPath,
+  };
+}
+
+
+export async function runPdfOracleRoundTrip(options: {
+  canonicalPdfPath: string;
+  yamlPath: string;
+  outputDir: string;
+  renderDpi?: number;
+}): Promise<PdfOracleRoundTripReport> {
+  const renderDpi = options.renderDpi ?? PPTX_RENDER_DPI;
+  const report = await inspectCanonicalPdf(options.canonicalPdfPath, { renderDpi });
+  const outputDir = resolveProjectPath(options.outputDir);
+  await mkdir(outputDir, { recursive: true });
+  const pptxPath = join(outputDir, "zh-TW-editable.pptx");
+  const generatedPdfPath = join(outputDir, "zh-TW-editable.roundtrip.pdf");
+  const canonicalPages = await renderPdfPages(resolveProjectPath(options.canonicalPdfPath), join(outputDir, "canonical-pages"), renderDpi, "page");
+  if (canonicalPages.length !== PAGE_ORDER.length) {
+    return {
+      ok: false,
+      canonicalRenderSizePx: report.renderSizePx,
+      renderer: { kind: "incomplete" },
+      incompleteReason: `canonical PDF page count mismatch: expected ${PAGE_ORDER.length}, got ${canonicalPages.length}`,
+      pageRenderSizePx: report.renderSizePx,
+      pageDiffs: [],
+    };
+  }
+  const pageBackgrounds = Object.fromEntries(PAGE_ORDER.map((pageId, index) => [pageId, canonicalPages[index]!])) as Partial<Record<PageId, string>>;
+  await buildEditablePptxFromYaml({
+    yamlPath: options.yamlPath,
+    outputPath: pptxPath,
+    pdfPageModel: {
+      pageSizePt: report.pageSizePt,
+      renderDpi: report.renderDpi,
+      renderSizePx: report.renderSizePx,
+      embeddedImageSizePx: report.embeddedImageSizePx,
+    },
+    pageBackgrounds,
+    textTransparency: 100,
+  });
+
+  try {
+    await exportPptxToPdfWithKeynote(pptxPath, generatedPdfPath);
+  } catch (error) {
+    return {
+      ok: false,
+      canonicalRenderSizePx: report.renderSizePx,
+      renderer: { kind: "incomplete" },
+      incompleteReason: `PPTX-to-PDF export failed: ${error instanceof Error ? error.message : String(error)}`,
+      pageRenderSizePx: report.renderSizePx,
+    };
+  }
+
+  const generatedPages = await renderPdfPages(generatedPdfPath, join(outputDir, "generated-pages"), renderDpi, "page");
+  const diffReport = await diffPdfOracleRenderedPageLists(canonicalPages, generatedPages, { renderDpi });
+  return {
+    ...diffReport,
+    canonicalRenderSizePx: report.renderSizePx,
+    renderer: diffReport.renderer.kind === "incomplete" ? diffReport.renderer : { kind: "pptx-pdf" },
+    pageRenderSizePx: report.renderSizePx,
+  };
+}
+
+
+export async function buildCoverEditablePptx(
+  outputPath = COVER_PPTX_OUTPUT_PATH,
+  yamlPath = ZH_TW_COVER_YAML_PATH,
+): Promise<string> {
+  const specs = await loadCoverTextSpecs(yamlPath);
+  const pptx = new PptxGenJS();
+  pptx.author = "Civic.AI Comics";
+  pptx.company = "Civic.AI";
+  pptx.subject = "Editable zh-TW book cover";
+  pptx.title = "Civic.AI Comics zh-TW cover editable";
+  pptx.defineLayout({ name: COVER_PPTX_LAYOUT_NAME, width: PPTX_SLIDE_WIDTH_IN, height: PPTX_SLIDE_HEIGHT_IN });
+  pptx.layout = COVER_PPTX_LAYOUT_NAME;
+
+  const backgroundDir = join(REVIEW_DIR, "cover-pptx-backgrounds");
+  await mkdir(backgroundDir, { recursive: true });
+  await mkdir(dirname(outputPath), { recursive: true });
+
+  for (const pageId of COVER_PAGE_ORDER) {
+    const spec = specs[pageId];
+    const slide = pptx.addSlide();
+    const backgroundPath = await renderPptxBackground(spec, join(backgroundDir, `${pageId}.png`));
+    const target = spec.target_size?.map(Number) ?? [];
+    const targetWidth = target[0] ?? PPTX_SLIDE_WIDTH_IN * PPTX_RENDER_DPI;
+    const targetHeight = target[1] ?? PPTX_SLIDE_HEIGHT_IN * PPTX_RENDER_DPI;
+    const xOffset = Math.max(0, (PPTX_SLIDE_WIDTH_IN - pxToPptxInches(targetWidth)) / 2);
+    slide.addImage({
+      path: backgroundPath,
+      x: xOffset,
+      y: 0,
+      w: pxToPptxInches(targetWidth),
+      h: pxToPptxInches(targetHeight),
+    });
+
+    for (const box of spec.boxes ?? []) {
+      const rect = box.box?.map(Number);
+      if (!rect || rect.length !== 4 || !rect.every(Number.isFinite)) continue;
+      const [x0, y0, x1, y1] = rect;
+      slide.addText(pptxTextValue(box), {
+        objectName: String(box.id),
+        x: xOffset + pxToPptxInches(x0!),
         y: pxToPptxInches(y0!),
         w: pxToPptxInches(x1! - x0!),
         h: pxToPptxInches(y1! - y0!),
@@ -1172,6 +1927,10 @@ export async function parseEditablePptxToYaml(
       const boxesForPage = (root.pages[pageId]?.boxes ?? []).map((box, index) => boxFromCompactYamlBox(pageId, box, index));
       const slideMatches = matchLegacyShapes(filteredDesk, boxesForPage);
       for (const [boxId, shape] of slideMatches) {
+        if (pageId === "Ch4_A" && boxId === "b006_body") {
+          console.log(`[Parseback] Skipping update for split table block: ${pageId}/${boxId}`);
+          continue;
+        }
         updates.set(`${pageId}/${boxId}`, shape);
       }
     } else {
@@ -1205,6 +1964,125 @@ export async function parseEditablePptxToYaml(
   const rewritten = rewriteCompactYamlFromPptxUpdates(yamlText, root, updates);
   if (rewritten.updated > 0) await writeFile(resolvedYamlPath, rewritten.yamlText);
   return { yaml_path: resolvedYamlPath, updated: rewritten.updated, unknown_shapes: [] };
+}
+
+export async function parseCoverEditablePptxToYaml(
+  pptxPath = COVER_PPTX_OUTPUT_PATH,
+  yamlPath = ZH_TW_COVER_YAML_PATH,
+): Promise<ParseEditablePptxToYamlResult> {
+  const resolvedPptxPath = resolveProjectPath(pptxPath);
+  const resolvedYamlPath = resolveProjectPath(yamlPath);
+  const yamlText = await readFile(resolvedYamlPath, "utf8");
+  const root = Bun.YAML.parse(yamlText) as CompactCoverYamlRoot;
+  if (!root.pages || typeof root.pages !== "object") throw new VerificationError("zh-TW cover YAML has no pages map");
+
+  const expectedIdsByPage = new Map<CoverPageId, Set<string>>();
+  for (const pageId of COVER_PAGE_ORDER) {
+    const boxes = root.pages[pageId]?.boxes ?? [];
+    expectedIdsByPage.set(pageId, new Set(boxes.map((box) => String(box.id ?? "")).filter(Boolean)));
+  }
+
+  const zip = await JSZip.loadAsync(await readFile(resolvedPptxPath));
+  const updates = new Map<string, ParsedPptxShape>();
+  const unknownShapes: string[] = [];
+  const missingShapes: string[] = [];
+  const legacySlidePageIds = new Set<CoverPageId>();
+  for (let slideIndex = 0; slideIndex < COVER_PAGE_ORDER.length; slideIndex += 1) {
+    const pageId = COVER_PAGE_ORDER[slideIndex]!;
+    const page = root.pages[pageId];
+    if (!page) throw new VerificationError(`zh-TW cover YAML missing page: ${pageId}`);
+    const slidePath = `ppt/slides/slide${slideIndex + 1}.xml`;
+    const slideEntry = zip.file(slidePath);
+    if (!slideEntry) throw new VerificationError(`PPTX missing slide XML: ${slidePath}`);
+    const slideXml = await slideEntry.async("string");
+    const doc = PPTX_XML_PARSER.parse(slideXml) as OrderedXmlNode[];
+    const parsedShapes = parsePptxSlideShapes(slideXml).filter((shape) => shape.text);
+    const xOffset = coverSlideXOffsetPx(page);
+    const expectedIds = expectedIdsByPage.get(pageId) ?? new Set<string>();
+    const seenIds = new Set<string>();
+    const namedShapeCount = parsedShapes.filter((shape) => expectedIds.has(shape.name)).length;
+
+    if (parsedShapes.length > 0 && namedShapeCount === 0) {
+      legacySlidePageIds.add(pageId);
+      const spTree = findNodeWithKey(doc, "p:spTree");
+      const resolvedDeskShapes: ParsedPptxShape[] = [];
+      traverseShapes(spTree ? (spTree["p:spTree"] as OrderedXmlNode[]) : undefined, null, resolvedDeskShapes);
+      const shiftedBoxes = (page.boxes ?? [])
+        .map((box, index) => shiftBoxForCoverPptxSlide(boxFromCompactCoverYamlBox(pageId, box, index), xOffset));
+      const slideMatches = matchLegacyShapes(resolvedDeskShapes.filter((shape) => shape.text), shiftedBoxes);
+      for (const [boxId, shape] of slideMatches) {
+        updates.set(`${pageId}/${boxId}`, normalizeCoverPptxShapeForYaml(shape, xOffset));
+      }
+      continue;
+    }
+
+    const renamedShapes: ParsedPptxShape[] = [];
+    for (const shape of parsedShapes) {
+      if (!expectedIds.has(shape.name)) {
+        renamedShapes.push(shape);
+        continue;
+      }
+      updates.set(`${pageId}/${shape.name}`, normalizeCoverPptxShapeForYaml(shape, xOffset));
+      seenIds.add(shape.name);
+    }
+    const missingIds = [...expectedIds].filter((expectedId) => !seenIds.has(expectedId));
+    const renamedMatches = matchLegacyShapes(
+      renamedShapes,
+      (page.boxes ?? [])
+        .filter((box) => missingIds.includes(String(box.id ?? "")))
+        .map((box, index) => shiftBoxForCoverPptxSlide(boxFromCompactCoverYamlBox(pageId, box, index), xOffset)),
+    );
+    const matchedRenamedShapes = new Set<ParsedPptxShape>();
+    for (const [boxId, shape] of renamedMatches) {
+      updates.set(`${pageId}/${boxId}`, normalizeCoverPptxShapeForYaml(shape, xOffset));
+      seenIds.add(boxId);
+      matchedRenamedShapes.add(shape);
+    }
+    for (const shape of renamedShapes) {
+      if (!matchedRenamedShapes.has(shape)) unknownShapes.push(`${pageId}/${shape.name}`);
+    }
+    for (const expectedId of expectedIds) {
+      if (!seenIds.has(expectedId)) missingShapes.push(`${pageId}/${expectedId}`);
+    }
+  }
+
+  const pageIdFromParsebackEntry = (entry: string): CoverPageId => {
+    const slash = entry.indexOf("/");
+    return (slash >= 0 ? entry.slice(0, slash) : entry) as CoverPageId;
+  };
+  const unknownOnStrictSlides = unknownShapes.filter((entry) => !legacySlidePageIds.has(pageIdFromParsebackEntry(entry)));
+  const missingOnStrictSlides = missingShapes.filter((entry) => !legacySlidePageIds.has(pageIdFromParsebackEntry(entry)));
+  if (unknownOnStrictSlides.length > 0) {
+    throw new VerificationError(`PPTX contains shapes with no cover YAML box: ${unknownOnStrictSlides.join(", ")}`);
+  }
+  if (missingOnStrictSlides.length > 0) {
+    throw new VerificationError(`PPTX is missing expected cover YAML-backed text boxes: ${missingOnStrictSlides.join(", ")}`);
+  }
+
+  const rewritten = rewriteCompactCoverYamlFromPptxUpdates(yamlText, root, updates);
+  if (rewritten.updated > 0) await writeFile(resolvedYamlPath, rewritten.yamlText);
+  return { yaml_path: resolvedYamlPath, updated: rewritten.updated, unknown_shapes: [] };
+}
+
+function coverSlideXOffsetPx(page: CompactCoverYamlPage): number {
+  const targetSize = requiredSizeFromCompactYaml(page.target_size, "zh-TW cover YAML target_size");
+  return Math.max(0, (PPTX_SLIDE_WIDTH_IN * PPTX_RENDER_DPI - targetSize.width) / 2);
+}
+
+function shiftBoxForCoverPptxSlide(box: BoxSpec, xOffset: number): BoxSpec {
+  const [x0, y0, x1, y1] = (box.box ?? []).map(Number);
+  return {
+    ...box,
+    box: [x0! + xOffset, y0!, x1! + xOffset, y1!],
+  };
+}
+
+function normalizeCoverPptxShapeForYaml(shape: ParsedPptxShape, xOffset: number): ParsedPptxShape {
+  const [x0, y0, x1, y1] = shape.box.map(Number);
+  return {
+    ...shape,
+    box: [x0! - xOffset, y0!, x1! - xOffset, y1!],
+  };
 }
 
 function findNodeWithKey(nodes: OrderedXmlNode[] | undefined, key: string): OrderedXmlNode | null {
@@ -1274,12 +2152,17 @@ function parsePptxTextBody(txBodyNode: OrderedXmlNode | undefined): { text: stri
   const paragraphs = children.filter((node) => Object.prototype.hasOwnProperty.call(node, "a:p"));
   for (let paragraphIndex = 0; paragraphIndex < paragraphs.length; paragraphIndex += 1) {
     if (paragraphIndex > 0) append("\n", { bold: false });
+    let atLineStart = true;
     for (const node of xmlElementChildren(paragraphs[paragraphIndex]!, "a:p")) {
       if (Object.prototype.hasOwnProperty.call(node, "a:r")) {
         const runChildren = xmlElementChildren(node, "a:r");
-        append(collectXmlText(runChildren, "a:t"), pptxRunStyle(runChildren));
+        const rawText = collectXmlText(runChildren, "a:t");
+        const runText = atLineStart ? rawText.replace(/^[ \t]+/, "") : rawText;
+        append(runText, pptxRunStyle(runChildren));
+        if (runText.length > 0) atLineStart = false;
       } else if (Object.prototype.hasOwnProperty.call(node, "a:br")) {
         append("\n", { bold: false });
+        atLineStart = true;
       }
     }
   }
@@ -1350,7 +2233,11 @@ function rewriteCompactYamlFromPptxUpdates(
   let updated = 0;
   for (const pageId of PAGE_ORDER) {
     const page = root.pages?.[pageId];
-    for (const box of page?.boxes ?? []) {
+    if (!page) continue;
+    const mdRange = tryFindYamlPageMdLineRange(lines, pageId);
+    let mdText = mdRange ? parseYamlPageMdFromLines(lines, mdRange) : undefined;
+    let mdChanged = false;
+    for (const box of page.boxes ?? []) {
       const boxId = String(box.id ?? "");
       const shape = updates.get(`${pageId}/${boxId}`);
       if (!boxId || !shape) continue;
@@ -1362,12 +2249,67 @@ function rewriteCompactYamlFromPptxUpdates(
       }
       if ((box.align ?? "left") !== shape.align) changed = replaceYamlBoxScalar(lines, pageId, boxId, "align", shape.align) || changed;
       const currentText = String(box.text ?? "");
-      const textContentChanged = stripHardBreaks(currentText) !== stripHardBreaks(shape.text);
+      const currentComparableText = stripHardBreaks(currentText.replace(/[ \t]+$/gm, ""));
+      const shapeComparableText = stripHardBreaks(shape.text.replace(/[ \t]+$/gm, ""));
+      const textContentChanged = currentComparableText !== shapeComparableText;
       if (textContentChanged) changed = replaceYamlBoxText(lines, pageId, boxId, shape.text) || changed;
       const emphasisMatches = textContentChanged
         ? sameResolvedEmphasisStyles(shape.text, box.emphasis, shapeEmphasis, box.color)
         : sameResolvedEmphasisStylesAcrossTexts(currentText, box.emphasis, shape.text, shapeEmphasis, box.color);
       if (textContentChanged || !emphasisMatches) {
+        if (shapeEmphasis.length > 0 || !box.emphasis) {
+          changed = replaceYamlBoxEmphasis(lines, pageId, boxId, shapeEmphasis) || changed;
+        }
+      }
+      if (mdText !== undefined) {
+        let nextMd = textContentChanged
+          ? replaceNormalizedBoxTextInPageMd(mdText, currentText, shape.text)
+          : syncNormalizedBoxTextInPageMd(mdText, currentText);
+        nextMd = syncNormalizedBoxTextInPageMd(nextMd, shape.text);
+        if (nextMd !== mdText) {
+          mdText = nextMd;
+          mdChanged = true;
+        }
+      }
+      if (changed) updated += 1;
+    }
+    if (mdChanged && mdText !== undefined) {
+      replaceYamlPageMdLines(lines, pageId, mdText);
+      updated += 1;
+    }
+  }
+  return { yamlText: `${lines.join("\n")}${trailingNewline ? "\n" : ""}`, updated };
+}
+
+function rewriteCompactCoverYamlFromPptxUpdates(
+  yamlText: string,
+  root: CompactCoverYamlRoot,
+  updates: Map<string, ParsedPptxShape>,
+): { yamlText: string; updated: number } {
+  const trailingNewline = yamlText.endsWith("\n");
+  const lines = yamlText.replace(/\n$/, "").split("\n");
+  let updated = 0;
+  for (const pageId of COVER_PAGE_ORDER) {
+    const page = root.pages?.[pageId];
+    if (!page) continue;
+    for (const box of page.boxes ?? []) {
+      const boxId = String(box.id ?? "");
+      const shape = updates.get(`${pageId}/${boxId}`);
+      if (!boxId || !shape) continue;
+      const shapeEmphasis = removeDefaultColorEmphasis(shape.text, shape.emphasis, box.color);
+      let changed = false;
+      if (!sameNumberArray(box.box, shape.box)) changed = replaceYamlBoxScalar(lines, pageId, boxId, "box", formatYamlNumberArray(shape.box)) || changed;
+      if (shape.font !== undefined && Number(box.font) !== shape.font) {
+        changed = replaceYamlBoxScalar(lines, pageId, boxId, "font", String(shape.font)) || changed;
+      }
+      if (shape.align === "center" && (box.align ?? "left") !== "center") changed = replaceYamlBoxScalar(lines, pageId, boxId, "align", "center") || changed;
+      const currentText = String(box.text ?? "");
+      const textContentChanged = stripHardBreaks(currentText.replace(/[ \t]+$/gm, "")) !== stripHardBreaks(shape.text.replace(/[ \t]+$/gm, ""));
+      if (textContentChanged) changed = replaceYamlBoxText(lines, pageId, boxId, shape.text) || changed;
+      const emphasisMatches = textContentChanged
+        ? sameResolvedEmphasisStyles(shape.text, box.emphasis, shapeEmphasis, box.color)
+        : sameResolvedEmphasisStylesAcrossTexts(currentText, box.emphasis, shape.text, shapeEmphasis, box.color);
+      if ((textContentChanged || !emphasisMatches) && (shapeEmphasis.length > 0 || !box.emphasis)) {
         changed = replaceYamlBoxEmphasis(lines, pageId, boxId, shapeEmphasis) || changed;
       }
       if (changed) updated += 1;
@@ -1376,7 +2318,8 @@ function rewriteCompactYamlFromPptxUpdates(
   return { yamlText: `${lines.join("\n")}${trailingNewline ? "\n" : ""}`, updated };
 }
 
-function replaceYamlBoxScalar(lines: string[], pageId: PageId, boxId: string, field: string, value: string): boolean {
+
+function replaceYamlBoxScalar(lines: string[], pageId: string, boxId: string, field: string, value: string): boolean {
   const range = findYamlBoxLineRange(lines, pageId, boxId);
   const line = findYamlFieldLine(lines, range, field);
   const replacement = `        ${field}: ${value}`;
@@ -1390,7 +2333,7 @@ function replaceYamlBoxScalar(lines: string[], pageId: PageId, boxId: string, fi
   return true;
 }
 
-function replaceYamlBoxText(lines: string[], pageId: PageId, boxId: string, text: string): boolean {
+function replaceYamlBoxText(lines: string[], pageId: string, boxId: string, text: string): boolean {
   const range = findYamlBoxLineRange(lines, pageId, boxId);
   const line = findYamlFieldLine(lines, range, "text");
   if (line === undefined) throw new VerificationError(`YAML ${pageId}/${boxId} has no text field`);
@@ -1403,7 +2346,7 @@ function replaceYamlBoxText(lines: string[], pageId: PageId, boxId: string, text
   return true;
 }
 
-function replaceYamlBoxEmphasis(lines: string[], pageId: PageId, boxId: string, emphasis: EmphasisSpec[]): boolean {
+function replaceYamlBoxEmphasis(lines: string[], pageId: string, boxId: string, emphasis: EmphasisSpec[]): boolean {
   const range = findYamlBoxLineRange(lines, pageId, boxId);
   const line = findYamlFieldLine(lines, range, "emphasis");
   if (emphasis.length === 0) {
@@ -1422,7 +2365,7 @@ function replaceYamlBoxEmphasis(lines: string[], pageId: PageId, boxId: string, 
   return true;
 }
 
-function findYamlBoxLineRange(lines: string[], pageId: PageId, boxId: string): { start: number; end: number } {
+function findYamlPageLineRange(lines: string[], pageId: string): { start: number; end: number } {
   const pageStart = lines.findIndex((line) => line === `  ${pageId}:`);
   if (pageStart < 0) throw new VerificationError(`YAML missing page ${pageId}`);
   let pageEnd = lines.length;
@@ -1432,6 +2375,196 @@ function findYamlBoxLineRange(lines: string[], pageId: PageId, boxId: string): {
       break;
     }
   }
+  return { start: pageStart, end: pageEnd };
+}
+
+function tryFindYamlPageMdLineRange(lines: string[], pageId: PageId): { start: number; end: number } | undefined {
+  const pageRange = findYamlPageLineRange(lines, pageId);
+  for (let index = pageRange.start + 1; index < pageRange.end; index += 1) {
+    const line = lines[index];
+    if (!line?.startsWith("    md:")) continue;
+    if (!line.startsWith("    md: |-")) throw new VerificationError(`YAML ${pageId} md is not a multiline block`);
+    let end = index + 1;
+    while (end < pageRange.end && (lines[end] === "" || lines[end]?.startsWith("      "))) end += 1;
+    return { start: index, end };
+  }
+  return undefined;
+}
+
+export function findYamlPageMdLineRange(lines: string[], pageId: PageId): { start: number; end: number } {
+  const pageRange = findYamlPageLineRange(lines, pageId);
+  let mdHeader: number | undefined;
+  for (let index = pageRange.start + 1; index < pageRange.end; index += 1) {
+    if (lines[index]?.startsWith("    md:")) {
+      mdHeader = index;
+      break;
+    }
+  }
+  if (mdHeader === undefined) throw new VerificationError(`YAML ${pageId} has no md field`);
+  const header = lines[mdHeader]!;
+  if (!header.startsWith("    md: |-")) throw new VerificationError(`YAML ${pageId} md is not a multiline block`);
+  let end = mdHeader + 1;
+  while (end < pageRange.end && (lines[end] === "" || lines[end]?.startsWith("      "))) end += 1;
+  return { start: mdHeader, end };
+}
+
+function parseYamlPageMdFromLines(lines: string[], mdRange: { start: number; end: number }): string {
+  const body = lines.slice(mdRange.start + 1, mdRange.end);
+  return body.map((line) => (line.startsWith("      ") ? line.slice(6) : line)).join("\n");
+}
+
+function replaceYamlPageMdLines(lines: string[], pageId: PageId, mdText: string): void {
+  const mdRange = findYamlPageMdLineRange(lines, pageId);
+  const replacement = ["    md: |-", ...mdText.split("\n").map((part) => `      ${part}`)];
+  lines.splice(mdRange.start, mdRange.end - mdRange.start, ...replacement);
+}
+
+function syncNormalizedBoxTextInPageMd(mdText: string, boxText: string): string {
+  const boxNorm = stripHardBreaks(boxText);
+  if (boxNorm.length < 12 || stripHardBreaks(mdText).includes(boxNorm)) return mdText;
+  return (
+    replaceLineAnchoredParagraphInPageMd(mdText, boxText, boxText) ??
+    replacePrefixAnchoredParagraphInPageMd(mdText, boxNorm, boxNorm, boxText) ??
+    replaceSimilarParagraphInPageMd(mdText, boxNorm, boxNorm, boxText) ??
+    mdText
+  );
+}
+
+function replaceNormalizedBoxTextInPageMd(mdText: string, oldText: string, newText: string): string {
+  const oldNorm = stripHardBreaks(oldText);
+  const newNorm = stripHardBreaks(newText);
+  if (oldNorm === newNorm) return mdText;
+  if (mdText.includes(oldText)) return mdText.replace(oldText, newText);
+  const lineAnchored = replaceLineAnchoredParagraphInPageMd(mdText, oldText, newText);
+  if (lineAnchored) return lineAnchored;
+  const flatMd = stripHardBreaks(mdText);
+  const flatIndex = flatMd.indexOf(oldNorm);
+  if (flatIndex >= 0) {
+    const [mdStart, mdEnd] = flatNormSpanToMdRange(mdText, flatIndex, oldNorm.length);
+    if (mdStart >= 0 && mdEnd >= 0) return `${mdText.slice(0, mdStart)}${newText}${mdText.slice(mdEnd)}`;
+  }
+  return replacePrefixAnchoredParagraphInPageMd(mdText, oldNorm, newNorm, newText) ?? replaceSimilarParagraphInPageMd(mdText, oldNorm, newNorm, newText) ?? mdText;
+}
+
+
+function replaceLineAnchoredParagraphInPageMd(mdText: string, oldText: string, newText: string): string | null {
+  const anchors = [oldText, newText]
+    .flatMap((value) => value.split("\n"))
+    .map((value) => value.trim())
+    .filter((value, index, values) => value.length >= 8 && values.indexOf(value) === index);
+  if (anchors.length === 0) return null;
+
+  let match: { start: number; end: number } | null = null;
+  let start = 0;
+  while (start <= mdText.length) {
+    let end = mdText.indexOf("\n\n", start);
+    if (end < 0) end = mdText.length;
+    const paragraph = mdText.slice(start, end);
+    if (anchors.some((anchor) => paragraph.split("\n").some((line) => line.trim() === anchor))) {
+      if (match) return null;
+      match = { start, end };
+    }
+    if (end === mdText.length) break;
+    start = end + 2;
+  }
+
+  return match ? `${mdText.slice(0, match.start)}${newText}${mdText.slice(match.end)}` : null;
+}
+
+function replacePrefixAnchoredParagraphInPageMd(mdText: string, oldNorm: string, newNorm: string, newText: string): string | null {
+  const prefixes = [oldNorm, newNorm]
+    .map((value) => value.slice(0, Math.min(16, value.length)))
+    .filter((value, index, values) => value.length >= 12 && values.indexOf(value) === index);
+  if (prefixes.length === 0) return null;
+
+  let match: { start: number; end: number } | null = null;
+  let start = 0;
+  while (start <= mdText.length) {
+    let end = mdText.indexOf("\n\n", start);
+    if (end < 0) end = mdText.length;
+    const candidateNorm = stripHardBreaks(mdText.slice(start, end));
+    if (prefixes.some((prefix) => candidateNorm.startsWith(prefix))) {
+      if (match) return null;
+      match = { start, end };
+    }
+    if (end === mdText.length) break;
+    start = end + 2;
+  }
+
+  return match ? `${mdText.slice(0, match.start)}${newText}${mdText.slice(match.end)}` : null;
+}
+
+function replaceSimilarParagraphInPageMd(mdText: string, oldNorm: string, newNorm: string, newText: string): string | null {
+  const targetNorm = newNorm.length >= oldNorm.length ? newNorm : oldNorm;
+  if (targetNorm.length < 12 || newNorm.length < 12) return null;
+
+  const oldAnchor = oldNorm.slice(0, Math.min(8, oldNorm.length));
+  const newAnchor = newNorm.slice(0, Math.min(8, newNorm.length));
+  let best: { start: number; end: number; score: number } | null = null;
+  let secondBestScore = 0;
+  let start = 0;
+  while (start <= mdText.length) {
+    let end = mdText.indexOf("\n\n", start);
+    if (end < 0) end = mdText.length;
+    const block = mdText.slice(start, end);
+    const candidateNorm = stripHardBreaks(block);
+    const anchored = Boolean((oldAnchor && candidateNorm.includes(oldAnchor)) || (newAnchor && candidateNorm.includes(newAnchor)));
+    if (anchored && candidateNorm.length >= Math.min(12, Math.floor(targetNorm.length * 0.3))) {
+      const score = Math.max(lcsSimilarity(candidateNorm, oldNorm), lcsSimilarity(candidateNorm, newNorm));
+      if (!best || score > best.score) {
+        secondBestScore = best?.score ?? 0;
+        best = { start, end, score };
+      } else if (score > secondBestScore) {
+        secondBestScore = score;
+      }
+    }
+    if (end === mdText.length) break;
+    start = end + 2;
+  }
+
+  if (!best || best.score < 0.6) return null;
+  if (best.score < 0.9 && best.score - secondBestScore < 0.08) return null;
+  return `${mdText.slice(0, best.start)}${newText}${mdText.slice(best.end)}`;
+}
+
+function lcsSimilarity(left: string, right: string): number {
+  if (!left || !right) return 0;
+  const previous = new Array<number>(right.length + 1).fill(0);
+  const current = new Array<number>(right.length + 1).fill(0);
+  for (let i = 1; i <= left.length; i += 1) {
+    for (let j = 1; j <= right.length; j += 1) {
+      current[j] = left[i - 1] === right[j - 1] ? previous[j - 1]! + 1 : Math.max(previous[j]!, current[j - 1]!);
+    }
+    previous.splice(0, previous.length, ...current);
+    current.fill(0);
+  }
+  const lcs = previous[right.length]!;
+  const shorter = Math.min(left.length, right.length);
+  const longer = Math.max(left.length, right.length);
+  return (lcs / shorter) * Math.sqrt(shorter / longer);
+}
+
+
+function flatNormSpanToMdRange(mdText: string, flatStart: number, flatLength: number): [number, number] {
+  let flatIndex = 0;
+  let mdStart = -1;
+  let mdEnd = -1;
+  for (let index = 0; index < mdText.length; index += 1) {
+    if (mdText[index] === "\n") continue;
+    if (flatIndex === flatStart) mdStart = index;
+    if (flatIndex === flatStart + flatLength - 1) {
+      mdEnd = index + 1;
+      break;
+    }
+    flatIndex += 1;
+  }
+  return [mdStart, mdEnd];
+}
+
+function findYamlBoxLineRange(lines: string[], pageId: string, boxId: string): { start: number; end: number } {
+  const pageRange = findYamlPageLineRange(lines, pageId);
+  const pageStart = pageRange.start;
+  const pageEnd = pageRange.end;
   const boxStart = lines.findIndex((line, index) => index > pageStart && index < pageEnd && line === `      - id: ${boxId}`);
   if (boxStart < 0) throw new VerificationError(`YAML missing box ${pageId}/${boxId}`);
   let boxEnd = pageEnd;
@@ -1508,7 +2641,10 @@ function comparableStyledCharacters(text: string, style: InlineEmphasisMap): { c
   const entries: { char: string; bold: boolean; color?: string }[] = [];
   let codeOffset = 0;
   for (const char of Array.from(text)) {
-    if (char !== "\n") {
+    let lookahead = codeOffset + char.length;
+    while (lookahead < text.length && /[ \t]/.test(text[lookahead]!)) lookahead += 1;
+    const lineEndWhitespace = /[ \t]/.test(char) && (lookahead === text.length || text[lookahead] === "\n");
+    if (char !== "\n" && !lineEndWhitespace) {
       entries.push({
         char,
         bold: Boolean(style.bold[codeOffset]),
@@ -1523,6 +2659,7 @@ function comparableStyledCharacters(text: string, style: InlineEmphasisMap): { c
 function stripHardBreaks(text: string): string {
   return text.replace(/\n/g, "");
 }
+
 
 function comparableEmphasisStyle(text: string, emphasis: EmphasisSpec[], defaultColor: unknown): InlineEmphasisMap {
   const resolved = emphasisStyleMap(text, emphasis);
@@ -1758,11 +2895,13 @@ export async function verifyGeneratedAssets(
   outputRoot = OUTPUT_ROOT,
   textDir = TEXT_SPEC_DIR,
 ): Promise<{ missing: string[]; dimensions: Record<string, [number, number]> }> {
-  const expectedPrint = [...PAGE_ORDER.map((pageId) => TEMPLATE_IMAGE_NAMES[pageId]), ...COVER_IMAGE_NAMES, "web_footer.png"];
+  const expectedPrint = [...PAGE_ORDER.map((pageId) => TEMPLATE_IMAGE_NAMES[pageId]), ...COVER_IMAGE_NAMES, ...COVER_EXTRA_IMAGE_NAMES, "web_footer.png"];
   const expectedWeb = ["Overview.png", ...Array.from({ length: 6 }, (_, index) => `Ch${index + 1}.png`)];
+  const expectedPptx = ["zh-TW-editable.pptx", "zh-TW-cover-editable.pptx"];
   const missing: string[] = [];
   for (const name of expectedPrint) if (!existsSync(join(outputRoot, name))) missing.push(name);
   for (const name of expectedWeb) if (!existsSync(join(outputRoot, "web", name))) missing.push(`web/${name}`);
+  for (const name of expectedPptx) if (!existsSync(join(outputRoot, name))) missing.push(name);
 
   const dimensions: Record<string, [number, number]> = {};
   for (const name of expectedPrint) {
@@ -1791,21 +2930,36 @@ export async function verifyGeneratedAssets(
       verifyTextSpec(spec, (spec.boxes ?? []).map((box) => String(box.id)));
     }
   }
+
+  const coverTextDir = textDir === TEXT_SPEC_DIR ? COVER_TEXT_SPEC_DIR : join(dirname(textDir), "cover-text");
+  for (const pageId of COVER_PAGE_ORDER) {
+    const specPath = join(coverTextDir, `${pageId}.json`);
+    if (!existsSync(specPath)) {
+      missing.push(`cover-text/${pageId}.json`);
+      continue;
+    }
+    const spec = JSON.parse(await readFile(specPath, "utf8")) as TextSpec;
+    verifyTextSpec(spec, (spec.boxes ?? []).map((box) => String(box.id)));
+  }
   return { missing, dimensions };
 }
 
 export async function buildAll(): Promise<Record<string, unknown>> {
   const specs = await buildTextSpecs();
+  const coverSpecs = await buildCoverTextSpecs();
   const printAndReviewAssets = await renderAll();
   const webAssets = await buildWebAssets();
   const editablePptx = await buildEditablePptx();
+  const coverEditablePptx = await buildCoverEditablePptx();
   const diffReport = await generateDiffMasks();
   const verification = await verifyGeneratedAssets();
   return {
     specs,
+    cover_specs: coverSpecs,
     print_and_review_assets: printAndReviewAssets,
     web_assets: webAssets,
     editable_pptx: editablePptx,
+    cover_editable_pptx: coverEditablePptx,
     diff_report: diffReport.reportPath,
     verification,
   };
@@ -1813,26 +2967,49 @@ export async function buildAll(): Promise<Record<string, unknown>> {
 
 export async function main(argv = Bun.argv.slice(2)): Promise<number> {
   const command = argv[0];
-  if (!command || !["specs", "render", "web", "pptx", "parseback", "diff", "verify", "build"].includes(command)) {
-    console.error("usage: bun scripts/zh_tw_comics_pipeline.ts <specs|render|web|pptx|parseback|diff|verify|build>");
+  if (!command || !["specs", "cover-specs", "render", "cover-render", "web", "pptx", "cover-pptx", "parseback", "cover-parseback", "cover-mergeback", "diff", "verify", "build", "pdf-ingest", "pdf-oracle"].includes(command)) {
+    console.error("usage: bun scripts/zh_tw_comics_pipeline.ts <specs|cover-specs|render|cover-render|web|pptx|cover-pptx|parseback|cover-parseback|cover-mergeback|diff|verify|build|pdf-ingest|pdf-oracle>");
     return 2;
   }
   if (command === "specs") {
     console.log(JSON.stringify({ specs: await buildTextSpecs() }, null, 2));
+  } else if (command === "cover-specs") {
+    console.log(JSON.stringify({ specs: await buildCoverTextSpecs() }, null, 2));
   } else if (command === "render") {
     console.log(JSON.stringify({ assets: await renderAll() }, null, 2));
+  } else if (command === "cover-render") {
+    console.log(JSON.stringify({ assets: await renderCoverAssets() }, null, 2));
   } else if (command === "web") {
     console.log(JSON.stringify({ web_assets: await buildWebAssets() }, null, 2));
   } else if (command === "pptx") {
     console.log(JSON.stringify({ editable_pptx: await buildEditablePptx() }, null, 2));
+  } else if (command === "cover-pptx") {
+    console.log(JSON.stringify({ editable_pptx: await buildCoverEditablePptx() }, null, 2));
   } else if (command === "parseback") {
     console.log(JSON.stringify(await parseEditablePptxToYaml(argv[1] ?? PPTX_OUTPUT_PATH, argv[2] ?? ZH_TW_YAML_PATH), null, 2));
+  } else if (command === "cover-parseback" || command === "cover-mergeback") {
+    console.log(JSON.stringify(await parseCoverEditablePptxToYaml(argv[1] ?? COVER_PPTX_OUTPUT_PATH, argv[2] ?? ZH_TW_COVER_YAML_PATH), null, 2));
   } else if (command === "diff") {
     console.log(JSON.stringify(await generateDiffMasks(), null, 2));
   } else if (command === "verify") {
     console.log(JSON.stringify(await verifyGeneratedAssets(), null, 2));
   } else if (command === "build") {
     console.log(JSON.stringify(await buildAll(), null, 2));
+  } else if (command === "pdf-ingest") {
+    console.log(JSON.stringify(await ingestCanonicalPdfToYaml({
+      canonicalPdfPath: argv[1] ?? DEFAULT_ZH_TW_CANONICAL_PDF,
+      yamlPath: argv[2] ?? ZH_TW_YAML_PATH,
+      outputYamlPath: argv[3] ?? ZH_TW_YAML_PATH,
+      renderDpi: PPTX_RENDER_DPI,
+      dryRun: argv.includes("--dry-run"),
+    }), null, 2));
+  } else if (command === "pdf-oracle") {
+    console.log(JSON.stringify(await runPdfOracleRoundTrip({
+      canonicalPdfPath: argv[1] ?? DEFAULT_ZH_TW_CANONICAL_PDF,
+      yamlPath: argv[2] ?? ZH_TW_YAML_PATH,
+      outputDir: argv[3] ?? join(REVIEW_DIR, "pdf-oracle"),
+      renderDpi: PPTX_RENDER_DPI,
+    }), null, 2));
   }
   return 0;
 }

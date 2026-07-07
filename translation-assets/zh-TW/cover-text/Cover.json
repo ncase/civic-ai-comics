@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "image": "Cover",
+  "template_image": "book-cover/wordless/Cover.png",
+  "output_image": "Cover.png",
+  "target_size": [
+    5748,
+    8000
+  ],
+  "boxes": [
+    {
+      "id": "front_authors",
+      "ocr_type": "text",
+      "font_role": "body",
+      "text": "唐鳳、卡羅琳・艾默・德阿布奎基・格林",
+      "box": [
+        754,
+        523,
+        4998,
+        977
+      ],
+      "tight_box": [
+        754,
+        523,
+        4998,
+        977
+      ],
+      "font_size": 140,
+      "line_spacing": 150,
+      "color": "#111111",
+      "align": "center"
+    },
+    {
+      "id": "front_title",
+      "ocr_type": "title",
+      "font_role": "title",
+      "text": "仁工智慧",
+      "box": [
+        824,
+        1386,
+        4918,
+        3300
+      ],
+      "tight_box": [
+        824,
+        1386,
+        4918,
+        3300
+      ],
+      "font_size": 760,
+      "line_spacing": 790,
+      "color": "#050505",
+      "align": "center"
+    },
+    {
+      "id": "front_subtitle",
+      "ocr_type": "title",
+      "font_role": "title",
+      "text": "如何讓 AI\n與人類社群\n共同繁榮",
+      "box": [
+        1104,
+        3903,
+        4648,
+        5847
+      ],
+      "tight_box": [
+        1104,
+        3903,
+        4648,
+        5847
+      ],
+      "font_size": 265,
+      "line_spacing": 315,
+      "color": "#111111",
+      "align": "center"
+    }
+  ]
+}

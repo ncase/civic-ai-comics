@@ -1,0 +1,30 @@
+{
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "zh:tw:specs": "bun scripts/zh_tw_comics_pipeline.ts specs",
+    "zh:tw:render": "bun scripts/zh_tw_comics_pipeline.ts render",
+    "zh:tw:web": "bun scripts/zh_tw_comics_pipeline.ts web",
+    "zh:tw:pptx": "bun scripts/zh_tw_comics_pipeline.ts pptx",
+    "zh:tw:parseback": "bun scripts/zh_tw_comics_pipeline.ts parseback",
+    "zh:tw:cover-specs": "bun scripts/zh_tw_comics_pipeline.ts cover-specs",
+    "zh:tw:cover-render": "bun scripts/zh_tw_comics_pipeline.ts cover-render",
+    "zh:tw:cover-pptx": "bun scripts/zh_tw_comics_pipeline.ts cover-pptx",
+    "zh:tw:cover-mergeback": "bun scripts/zh_tw_comics_pipeline.ts cover-mergeback",
+    "zh:tw:diff": "bun scripts/zh_tw_comics_pipeline.ts diff",
+    "zh:tw:verify": "bun scripts/zh_tw_comics_pipeline.ts verify",
+    "zh:tw:pdf-ingest": "bun scripts/zh_tw_comics_pipeline.ts pdf-ingest",
+    "zh:tw:pdf-oracle": "bun scripts/zh_tw_comics_pipeline.ts pdf-oracle",
+    "zh:tw:build": "bun scripts/zh_tw_comics_pipeline.ts build"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "latest",
+    "fast-xml-parser": "^5.9.3",
+    "jszip": "^3.10.1",
+    "pptxgenjs": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "latest"
+  }
+}
