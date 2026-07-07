@@ -1142,37 +1142,76 @@ export async function parseEditablePptxToYaml(
   const unknownShapes: string[] = [];
   const missingShapes: string[] = [];
 
+  const fallbackToLegacy = true;
+  let usesLegacyMatch = false;
+
   for (let slideIndex = 0; slideIndex < PAGE_ORDER.length; slideIndex += 1) {
     const pageId = PAGE_ORDER[slideIndex]!;
     const slidePath = `ppt/slides/slide${slideIndex + 1}.xml`;
     const slideEntry = zip.file(slidePath);
     if (!slideEntry) throw new VerificationError(`PPTX missing slide XML: ${slidePath}`);
-    const parsedShapes = parsePptxSlideShapes(await slideEntry.async("string"));
+    const slideXml = await slideEntry.async("string");
+    const doc = PPTX_XML_PARSER.parse(slideXml) as OrderedXmlNode[];
+    const parsedShapes = parsePptxSlideShapes(slideXml);
     const expectedIds = expectedIdsByPage.get(pageId) ?? new Set<string>();
     const seenIds = new Set<string>();
-    for (const shape of parsedShapes) {
-      if (!expectedIds.has(shape.name)) {
-        unknownShapes.push(`${pageId}/${shape.name}`);
-        continue;
+    const namedShapeCount = parsedShapes.filter((shape) => expectedIds.has(shape.name)).length;
+    const pureLegacySlide = parsedShapes.length > 0 && namedShapeCount === 0;
+
+    if (pureLegacySlide && fallbackToLegacy) {
+      if (!usesLegacyMatch) {
+        console.log(`[Parseback] Fallback to legacy group transform resolution & heuristic matcher.`);
+        usesLegacyMatch = true;
       }
-      updates.set(`${pageId}/${shape.name}`, shape);
-      seenIds.add(shape.name);
-    }
-    for (const expectedId of expectedIds) {
-      if (!seenIds.has(expectedId)) missingShapes.push(`${pageId}/${expectedId}`);
+      const spTree = findNodeWithKey(doc, "p:spTree");
+      const resolvedDeskShapes: ParsedPptxShape[] = [];
+      traverseShapes(spTree ? (spTree["p:spTree"] as OrderedXmlNode[]) : undefined, null, resolvedDeskShapes);
+      const filteredDesk = resolvedDeskShapes.filter((s) => s.text);
+      const boxesForPage = (root.pages[pageId]?.boxes ?? []).map((box, index) => boxFromCompactYamlBox(pageId, box, index));
+      const slideMatches = matchLegacyShapes(filteredDesk, boxesForPage);
+      for (const [boxId, shape] of slideMatches) {
+        updates.set(`${pageId}/${boxId}`, shape);
+      }
+    } else {
+      for (const shape of parsedShapes) {
+        if (!expectedIds.has(shape.name)) {
+          unknownShapes.push(`${pageId}/${shape.name}`);
+          continue;
+        }
+        updates.set(`${pageId}/${shape.name}`, shape);
+        seenIds.add(shape.name);
+      }
+      for (const expectedId of expectedIds) {
+        if (!seenIds.has(expectedId)) missingShapes.push(`${pageId}/${expectedId}`);
+      }
     }
   }
 
-  if (unknownShapes.length > 0) {
-    throw new VerificationError(`PPTX contains shapes with no YAML box: ${unknownShapes.join(", ")}`);
-  }
-  if (missingShapes.length > 0) {
-    throw new VerificationError(`PPTX is missing expected YAML-backed text boxes: ${missingShapes.join(", ")}`);
+  if (!usesLegacyMatch) {
+    if (unknownShapes.length > 0) {
+      throw new VerificationError(`PPTX contains shapes with no YAML box: ${unknownShapes.join(", ")}`);
+    }
+    if (missingShapes.length > 0) {
+      throw new VerificationError(`PPTX is missing expected YAML-backed text boxes: ${missingShapes.join(", ")}`);
+    }
   }
 
   const rewritten = rewriteCompactYamlFromPptxUpdates(yamlText, root, updates);
   if (rewritten.updated > 0) await writeFile(resolvedYamlPath, rewritten.yamlText);
   return { yaml_path: resolvedYamlPath, updated: rewritten.updated, unknown_shapes: [] };
+}
+
+function findNodeWithKey(nodes: OrderedXmlNode[] | undefined, key: string): OrderedXmlNode | null {
+  if (!nodes || !Array.isArray(nodes)) return null;
+  for (const n of nodes) {
+    if (Object.keys(n).includes(key)) return n;
+    const childrenKey = Object.keys(n).find((k) => Array.isArray(n[k]));
+    if (childrenKey) {
+      const found = findNodeWithKey(n[childrenKey] as OrderedXmlNode[], key);
+      if (found) return found;
+    }
+  }
+  return null;
 }
 
 function parsePptxSlideShapes(slideXml: string): ParsedPptxShape[] {
