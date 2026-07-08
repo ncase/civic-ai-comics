@@ -1116,9 +1116,11 @@ export async function renderPage(spec: TextSpec | Record<string, unknown>, outpu
   await mkdir(dirname(destination), { recursive: true });
 
   const image = await loadImage(template);
-  const canvas = createCanvas(image.width, image.height);
+  const targetWidth = typed.target_size?.[0] ?? image.width;
+  const targetHeight = typed.target_size?.[1] ?? image.height;
+  const canvas = createCanvas(targetWidth, targetHeight);
   const ctx = canvas.getContext("2d");
-  ctx.drawImage(image, 0, 0);
+  ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
 
   if (mode === "vector" || mode === "editable_text") {
     if ((typed.image_patches?.length ?? 0) > 0) {
