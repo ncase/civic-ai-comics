@@ -1,0 +1,1953 @@
+# Test conversion of _data/comics-ja-overlays.json into the
+# ncase/civic-ai-comics translation-assets/*.yml schema. Not wired into any
+# build; generated for wrap/fit review only. "src" (original-English-text
+# position) is omitted — the ja overlay data has no equivalent field.
+# Lines that didn't fit their computed tight width/height at the authored
+# font size were re-wrapped and, if still too tall, the font was shrunk
+# (down to 50% of authored size) until it fit.
+schema: 1
+pages:
+  Overview:
+    source_size: [1280, 1781]
+    target_size: [5742, 8000]
+    render_dpi: 600
+    pdf_page_box: [689, 960]
+    boxes:
+      - id: b001_text
+        type: text
+        box: [1137, 287, 2196, 787]
+        tight: [1137, 287, 2196, 787]
+        font: 172
+        color: "#000000"
+        align: center
+        x_src_id: area_1
+        x_src_tier: 0
+        text: |-
+          聴いて
+          くれる
+      - id: b003_text
+        type: text
+        box: [3460, 325, 4732, 756]
+        tight: [3460, 325, 4732, 756]
+        font: 172
+        color: "#000000"
+        align: center
+        x_src_id: area_2
+        x_src_tier: 0
+        text: |-
+          守って
+          くれる
+      - id: b006_text
+        type: text
+        box: [3147, 1800, 5087, 2197]
+        tight: [3147, 1800, 5087, 2197]
+        font: 115
+        color: "#000000"
+        align: center
+        x_src_id: area_3
+        x_src_tier: 0
+        text: |-
+          すぐ忘れるあいまいな理想ではなく
+          具体的でちゃんと守られる
+      - id: b007_text
+        type: text
+        box: [682, 1879, 2571, 2223]
+        tight: [682, 1879, 2571, 2223]
+        font: 115
+        color: "#000000"
+        align: center
+        x_src_id: area_4
+        x_src_tier: 0
+        text: |-
+          人気や力のある人だけではなく
+          小さく弱い人の話も
+      - id: b009_text
+        type: text
+        box: [1097, 2768, 2182, 3304]
+        tight: [1097, 2768, 2182, 3304]
+        font: 172
+        color: "#000000"
+        align: center
+        x_src_id: area_5
+        text: |-
+          方法を
+          見守る
+      - id: b010_text
+        type: text
+        box: [3566, 2768, 4645, 3272]
+        tight: [3566, 2768, 4645, 3272]
+        font: 172
+        color: "#000000"
+        align: center
+        x_src_id: area_6
+        text: |-
+          結果を
+          測る
+      - id: b011_text
+        type: text
+        box: [3008, 3956, 5184, 4726]
+        tight: [3008, 3956, 5184, 4726]
+        font: 115
+        color: "#000000"
+        align: center
+        x_src_id: area_7
+        x_src_tier: 0
+        text: |-
+          大事なことを無視するものさしではなく
+          みんなで考えたみんなのための
+          ものさしで
+      - id: b014_text
+        type: text
+        box: [879, 4039, 2382, 4637]
+        tight: [879, 4039, 2382, 4637]
+        font: 115
+        color: "#000000"
+        align: center
+        x_src_id: area_8
+        x_src_tier: 0
+        text: |-
+          「信じてよ」ではなく
+          やり方が透明で
+          意見にすぐに応える
+      - id: b017_text
+        type: text
+        box: [1082, 5195, 2150, 5675]
+        tight: [1082, 5195, 2150, 5675]
+        font: 167
+        color: "#000000"
+        align: center
+        x_src_id: area_9
+        text: |-
+          みんなが
+          得する
+      - id: b018_text
+        type: text
+        box: [3492, 5225, 4560, 5729]
+        tight: [3492, 5225, 4560, 5729]
+        font: 172
+        color: "#000000"
+        align: center
+        x_src_id: area_10
+        text: |-
+          その場に
+          合う
+      - id: b019_text
+        type: text
+        box: [3181, 6658, 5078, 7282]
+        tight: [3181, 6658, 5078, 7282]
+        font: 115
+        color: "#000000"
+        align: center
+        x_src_id: area_11
+        x_src_tier: 0
+        text: |-
+          みんなに１つのやり方ではなく
+          みんなで考えみんなのための
+          多くのやり方を全部
+      - id: b022_text
+        type: text
+        box: [676, 6731, 2670, 7255]
+        tight: [676, 6731, 2670, 7255]
+        font: 115
+        color: "#000000"
+        align: center
+        x_src_id: area_12
+        x_src_tier: 0
+        text: |-
+          0か100かの総取りの争いではなく
+          みんなが前より良くなったね
+          と思えるように
+  Ch1_A:
+    source_size: [1437, 1999]
+    target_size: [5742, 8000]
+    render_dpi: 600
+    pdf_page_box: [689, 960]
+    boxes:
+      - id: b001_text
+        type: text
+        box: [1769, 1328, 5478, 2112]
+        tight: [1769, 1328, 5478, 2112]
+        font: 144
+        color: "#000000"
+        align: left
+        x_src_id: area_1
+        text: |-
+          問題：政府は統治される人々の必要としていることに耳
+          を傾ける必要があります。しかし今、市民が政治に関わ
+          れる最も一般的な方法は次の2つです……
+      - id: b002_text
+        type: text
+        box: [367, 2208, 2440, 2736]
+        tight: [367, 2208, 2440, 2736]
+        font: 126
+        color: "#000000"
+        align: center
+        x_src_id: area_2
+        text: |-
+          数年に一度の
+          一問だけの選択方式
+      - id: b003_text
+        type: text
+        box: [1458, 3120, 2509, 3432]
+        tight: [1458, 3120, 2509, 3432]
+        font: 172
+        color: "#eb573a"
+        align: left
+        x_src_id: area_3
+        text: |-
+          投票先：
+      - id: b004_text
+        type: text
+        box: [327, 5064, 5484, 5792]
+        tight: [327, 5064, 5484, 5792]
+        font: 126
+        color: "#000000"
+        align: center
+        x_src_id: area_4
+        text: |-
+          ご近所と対面で話すのは今でも素晴らしい。でも、わたしたちの身近なバブル"だけ"に限
+          られていて、全市民とは話せない。では、全市民にスケールできる仕組みを考案するとし
+          たら？次のようなことができるのは？
+      - id: b005_text
+        type: text
+        box: [2125, 7072, 3744, 7680]
+        tight: [2125, 7072, 3744, 7680]
+        font: 126
+        color: "#000000"
+        align: center
+        x_src_id: area_5
+        text: |-
+          同意できなくても
+          建設的でいられて
+      - id: b006_text
+        type: text
+        box: [390, 7088, 2067, 7688]
+        tight: [390, 7088, 2067, 7688]
+        font: 126
+        color: "#000000"
+        align: center
+        x_src_id: area_6
+        text: |-
+          合意できる事実や価値観を
+          浮かびあがらせて
+      - id: b007_text
+        type: text
+        box: [3020, 2192, 5369, 2880]
+        tight: [3020, 2192, 5369, 2880]
+        font: 126
+        color: "#000000"
+        align: center
+        x_src_id: area_7
+        text: |-
+          ニュースやSNSの何でもありの
+          怒鳴り合い（過激な声ほど勝つ）
+      - id: b008_title
+        type: title
+        box: [327, 1312, 1728, 1784]
+        tight: [327, 1312, 1728, 1784]
+        font: 322
+        color: "#000000"
+        align: left
+        x_src_id: area_8
+        text: |-
+          問題点：
+      - id: b009_text
+        type: text
+        box: [1479, 3484, 2448, 4189]
+        tight: [1479, 3484, 2448, 4189]
+        font: 110
+        color: "#000000"
+        align: left
+        x_src_id: area_9
+        text: |-
+          〇 悪いやつ
+          〇 もっと
+               悪いやつ
+          〇 勝てないひと
+      - id: b010_text
+        type: text
+        box: [3813, 7072, 5369, 7672]
+        tight: [3813, 7072, 5369, 7672]
+        font: 126
+        color: "#000000"
+        align: center
+        x_src_id: area_10
+        text: |-
+          解決策を作りだすのを
+          助けてくれる
+      - id: b011_title
+        type: title
+        box: [1057, 48, 5639, 984]
+        tight: [1057, 48, 5639, 984]
+        font: 459
+        color: "#000000"
+        align: left
+        x_src_id: area_11
+        text: |-
+          注意深さ
+      - id: b012_text
+        type: text
+        box: [2452, 2416, 2992, 2816]
+        tight: [2452, 2416, 2992, 2816]
+        font: 126
+        color: "#000000"
+        align: center
+        x_src_id: area_12
+        text: |-
+          片方/
+          両方
+  Ch1_B:
+    source_size: [1437, 1999]
+    target_size: [5742, 8000]
+    render_dpi: 600
+    pdf_page_box: [689, 960]
+    boxes:
+      - id: b001_title
+        type: title
+        box: [167, 152, 5581, 616]
+        tight: [167, 152, 5581, 616]
+        font: 287
+        color: "#000000"
+        align: left
+        x_src_id: area_1
+        text: |-
+          NOT: 人気や力のある人だけ　
+      - id: b002_text
+        type: text
+        box: [2676, 1352, 5478, 1656]
+        tight: [2676, 1352, 5478, 1656]
+        font: 126
+        color: "#000000"
+        align: left
+        x_src_id: area_2
+        text: |-
+          市民会議は陪審制のようなもの——
+      - id: b003_text
+        type: text
+        box: [2676, 1648, 5472, 2736]
+        tight: [2676, 1648, 5472, 2736]
+        font: 115
+        color: "#000000"
+        align: left
+        x_src_id: area_3
+        text: |-
+          市民を統計的に代表する人たちが集まり、関連するこ
+          とをとことん話し合います。集会は開催するには通常
+          なら高コストだけど、シビック・テックを使うことで
+          より多くの会議を開くことを可能にしました、そう、
+          より多くの決定ができるように!
+      - id: b004_text
+        type: text
+        box: [2584, 2802, 5472, 3402]
+        tight: [2584, 2802, 5472, 3402]
+        font: 115
+        color: "#000000"
+        align: left
+        x_src_id: area_4
+        text: |-
+          台湾が pol.is を使ってUber を参入させるか・どう
+          参入させるかを決めた例を考えてみよう：
+      - id: b005_title
+        type: title
+        box: [327, 1312, 2498, 1760]
+        tight: [327, 1312, 2498, 1760]
+        font: 287
+        color: "#000000"
+        align: left
+        x_src_id: area_5
+        text: |-
+          解決策:
+      - id: b006_text
+        type: text
+        box: [225, 3505, 2148, 4774]
+        tight: [225, 3505, 2148, 4774]
+        font: 120
+        color: "#000000"
+        align: left
+        x_src_id: area_6
+        text: |-
+          SNSでの有害な自我が表れるのを
+          避けるため、 pol.is には「共
+          有」ボタンや「返信」ボタンさえ
+          もありません。人々は意見を出し、
+          他の人たちは「賛成」、「反対」、
+          「わからない」で投票します。
+      - id: b007_text
+        type: text
+        box: [2148, 3496, 3692, 4032]
+        tight: [2148, 3496, 3692, 4032]
+        font: 120
+        color: "#000000"
+        align: center
+        x_src_id: area_7
+        text: |-
+          そのデータからどんな集団
+          ができているのかが分かり
+      - id: b008_text
+        type: text
+        box: [890, 5056, 1705, 5456]
+        tight: [890, 5056, 1705, 5456]
+        font: 110
+        color: "#7c7c7c"
+        align: center
+        x_src_id: area_8
+        text: |-
+          「安全が
+          最優先」
+      - id: b009_text
+        type: text
+        box: [3204, 5816, 5442, 7203]
+        tight: [3204, 5816, 5442, 7203]
+        font: 110
+        color: "#000000"
+        align: right
+        x_src_id: area_9
+        x_src_tier: 0
+        text: |-
+          このように技術はみんなの声を置き換えてしまうのでなく
+          声を拡張する！ 
+          デジタルなファシリテーターが支援する
+          ことで、より上手に合意も反対もでき
+          問題を解決します。
+          
+          そう、一緒に。
+      - id: b013_text
+        type: text
+        box: [2320, 4328, 2986, 4784]
+        tight: [2320, 4328, 2986, 4784]
+        font: 126
+        color: "#7c7c7c"
+        align: center
+        x_src_id: area_10
+        text: |-
+          乗客
+      - id: b014_title
+        type: title
+        box: [167, 624, 5575, 1088]
+        tight: [167, 624, 5575, 1088]
+        font: 287
+        color: "#000000"
+        align: left
+        x_src_id: area_11
+        text: |-
+          BUT: あらゆるコミュニティの声
+      - id: b015_text
+        type: text
+        box: [2905, 5080, 3457, 5432]
+        tight: [2905, 5080, 3457, 5432]
+        font: 110
+        color: "#7c7c7c"
+        align: center
+        x_src_id: area_12
+        text: |-
+          運転者
+      - id: b016_text
+        type: text
+        box: [3175, 4496, 3531, 4736]
+        tight: [3175, 4496, 3531, 4736]
+        font: 77
+        color: "#7c7c7c"
+        align: center
+        x_src_id: area_13
+        text: |-
+          タクシー
+      - id: b017_text
+        type: text
+        box: [3880, 4422, 5329, 4844]
+        tight: [3880, 4422, 5329, 4844]
+        font: 107
+        color: "#7c7c7c"
+        align: center
+        x_src_id: area_14
+        text: |-
+          「Uberは車両と運転者IDを
+          表示すべき」
+      - id: b018_text
+        type: text
+        box: [3788, 3496, 5494, 4049]
+        tight: [3788, 3496, 5494, 4049]
+        font: 120
+        color: "#000000"
+        align: center
+        x_src_id: area_15
+        text: |-
+          分断を橋渡しする案を
+          浮かびあがらせました
+  Ch2_A:
+    source_size: [1437, 1999]
+    target_size: [5742, 8000]
+    render_dpi: 600
+    pdf_page_box: [689, 960]
+    boxes:
+      - id: b001_title
+        type: title
+        box: [1085, 112, 5656, 1032]
+        tight: [1085, 112, 5656, 1032]
+        font: 459
+        color: "#000000"
+        align: left
+        x_src_id: area_1
+        text: |-
+          責任
+      - id: b002_text
+        type: text
+        box: [1792, 1256, 5449, 2152]
+        tight: [1792, 1256, 5449, 2152]
+        font: 144
+        color: "#000000"
+        align: left
+        x_src_id: area_2
+        text: |-
+          巨大な計画には大勢が必要…でも大勢が関わると、責任
+          のなすりつけ合いも大きくなる。
+      - id: b003_text
+        type: text
+        box: [609, 2176, 5340, 2456]
+        tight: [609, 2176, 5340, 2456]
+        font: 172
+        color: "#000000"
+        align: center
+        x_src_id: area_3
+        text: |-
+          みんなの責任となると、結局誰も責任を負わない。
+      - id: b004_text
+        type: text
+        box: [1654, 2953, 2769, 3366]
+        tight: [1654, 2953, 2769, 3366]
+        font: 109
+        color: "#000000"
+        align: center
+        x_src_id: area_4
+        x_src_tier: 0
+        text: |-
+          給与で買える物を
+          買ってるだけ！
+      - id: b006_text
+        type: text
+        box: [557, 3624, 1785, 3972]
+        tight: [557, 3624, 1785, 3972]
+        font: 115
+        color: "#000000"
+        align: center
+        x_src_id: area_5
+        x_src_tier: 0
+        text: |-
+          市場が求める物を
+          売ってるだけ
+      - id: b008_text
+        type: text
+        box: [3957, 3239, 5186, 3813]
+        tight: [3957, 3239, 5186, 3813]
+        font: 115
+        color: "#000000"
+        align: center
+        x_src_id: area_6
+        x_src_tier: 0
+        text: |-
+          市場で
+          決まっている給与を
+          従業員に
+          払っているだけ
+      - id: b012_text
+        type: text
+        box: [4004, 4600, 4845, 5252]
+        tight: [4004, 4600, 4845, 5252]
+        font: 115
+        color: "#000000"
+        align: center
+        x_src_id: area_7
+        x_src_tier: 0
+        text: |-
+          有権者が
+          望む物を
+          与えているだけ
+      - id: b015_text
+        type: text
+        box: [310, 6056, 5466, 7224]
+        tight: [310, 6056, 5466, 7224]
+        font: 126
+        color: "#000000"
+        align: center
+        x_src_id: area_8
+        text: |-
+          たとえば：2024年、台湾のFacebookは生成AI での詐欺で氾濫。台湾出身で知られるNVID
+          IA CEOのジェンスン・フアンのディープフェイク動画にひとびとは騙され、数百万ドルを
+          奪われました。Facebookの返答は？「広告は当社が作ったのではないし、アルゴリズムが
+          表示しただけ」。責任は取りませんでした。
+      - id: b016_text
+        type: text
+        box: [431, 7256, 5311, 7696]
+        tight: [431, 7256, 5311, 7696]
+        font: 138
+        color: "#000000"
+        align: center
+        x_src_id: area_9
+        text: |-
+          わたしは、命令されるように、インセンティブに、みんなのするように
+          ただ従っているだけです
+      - id: b017_title
+        type: title
+        box: [304, 1304, 1757, 1792]
+        tight: [304, 1304, 1757, 1792]
+        font: 287
+        color: "#000000"
+        align: left
+        x_src_id: area_10
+        text: |-
+          問題点:
+      - id: b018_text
+        type: text
+        box: [913, 4844, 2099, 5452]
+        tight: [913, 4844, 2099, 5452]
+        font: 115
+        color: "#000000"
+        align: center
+        x_src_id: area_11
+        x_src_tier: 0
+        text: |-
+          少しでも邪悪では
+          ないほうに
+          投票しているだけ
+  Ch2_B:
+    source_size: [1437, 1999]
+    target_size: [5742, 8000]
+    render_dpi: 600
+    pdf_page_box: [689, 960]
+    boxes:
+      - id: b001_title
+        type: title
+        box: [299, 80, 5478, 528]
+        tight: [299, 80, 5478, 528]
+        font: 287
+        color: "#000000"
+        align: left
+        x_src_id: area_1
+        text: |-
+          NOT: 曖昧な約束
+      - id: b002_text
+        type: text
+        box: [1797, 1296, 5329, 1904]
+        tight: [1797, 1296, 5329, 1904]
+        font: 126
+        color: "#000000"
+        align: left
+        x_src_id: area_2
+        text: |-
+          監査可能な「エンゲージメント契約」が必要。
+          それぞれ次のことを命じる：
+      - id: b003_title
+        type: title
+        box: [1837, 2176, 3049, 2752]
+        tight: [1837, 2176, 3049, 2752]
+        font: 235
+        color: "#000000"
+        align: left
+        x_src_id: area_3
+        text: |-
+          WHO
+      - id: b004_text
+        type: text
+        box: [3261, 2088, 5386, 2760]
+        tight: [3261, 2088, 5386, 2760]
+        font: 126
+        color: "#000000"
+        align: left
+        x_src_id: area_4
+        text: |-
+          このタスクに責任を持つ一人（また
+          は少数の人）は誰か？
+      - id: b005_title
+        type: title
+        box: [1829, 2840, 3058, 3344]
+        tight: [1829, 2840, 3058, 3344]
+        font: 235
+        color: "#000000"
+        align: left
+        x_src_id: area_5
+        text: |-
+          WHAT
+      - id: b006_text
+        type: text
+        box: [3263, 2867, 5410, 3339]
+        tight: [3263, 2867, 5410, 3339]
+        font: 126
+        color: "#000000"
+        align: left
+        x_src_id: area_6
+        text: |-
+          何をすべきか？
+      - id: b007_text
+        type: text
+        box: [3241, 4054, 5452, 4804]
+        tight: [3241, 4054, 5452, 4804]
+        font: 120
+        color: "#000000"
+        align: left
+        x_src_id: area_7
+        x_src_tier: 0
+        text: |-
+          なぜやるのか？ 目的を忘れなければタス
+          クは意味を保ち責任者が自分で判断できる…
+      - id: b009_text
+        type: text
+        box: [3275, 4866, 5537, 5864]
+        tight: [3275, 4866, 5537, 5864]
+        font: 126
+        color: "#000000"
+        align: left
+        x_src_id: area_8
+        text: |-
+          どうやるかは本人に委ねられるべき。
+          こうすればマイクロマネジメント
+          なしに責任を持たせられる。人間の
+          自律性を守ろう！
+      - id: b010_title
+        type: title
+        box: [1814, 5016, 3066, 5592]
+        tight: [1814, 5016, 3066, 5592]
+        font: 230
+        color: "#000000"
+        align: left
+        x_src_id: area_9
+        text: |-
+          HOW
+      - id: b011_text
+        type: text
+        box: [293, 6200, 5403, 7048]
+        tight: [293, 6200, 5403, 7048]
+        font: 144
+        color: "#000000"
+        align: left
+        x_src_id: area_10
+        text: |-
+          台湾の事例に戻ります：市民集会が責任を引き受け、詐欺防止と検閲回避を両
+          立する、85%以上が賛同する法律案を捻り出しました。その法律は公正であり
+          ながらも具体的な責任を、広告主とプラットフォームに課すものでした。
+      - id: b012_text
+        type: text
+        box: [281, 7032, 4904, 7328]
+        tight: [281, 7032, 4904, 7328]
+        font: 126
+        color: "#000000"
+        align: left
+        x_src_id: area_11
+        text: |-
+          結果：1年以内にディープフェイク詐欺は94%減少！
+      - id: b013_text
+        type: text
+        box: [959, 7376, 4898, 7664]
+        tight: [959, 7376, 4898, 7664]
+        font: 138
+        color: "#000000"
+        align: center
+        x_src_id: area_12
+        text: |-
+          こうして責任と自律性の両方が守られる！
+      - id: b014_title
+        type: title
+        box: [293, 560, 5478, 1056]
+        tight: [293, 560, 5478, 1056]
+        font: 287
+        color: "#000000"
+        align: left
+        x_src_id: area_13
+        text: |-
+          BUT: 明確なコミットメント
+      - id: b015_title
+        type: title
+        box: [316, 1312, 1763, 1752]
+        tight: [316, 1312, 1763, 1752]
+        font: 287
+        color: "#000000"
+        align: left
+        x_src_id: area_14
+        text: |-
+          解決策:
+      - id: b016_title
+        type: title
+        box: [1843, 4040, 3020, 4552]
+        tight: [1843, 4040, 3020, 4552]
+        font: 230
+        color: "#000000"
+        align: left
+        x_src_id: area_15
+        text: |-
+          WHY
+      - id: b017_title
+        type: title
+        box: [1830, 3370, 3065, 3978]
+        tight: [1830, 3370, 3065, 3978]
+        font: 230
+        color: "#000000"
+        align: left
+        x_src_id: area_16
+        text: |-
+          WHEN
+      - id: b018_text
+        type: text
+        box: [3251, 3497, 5456, 3889]
+        tight: [3251, 3497, 5456, 3889]
+        font: 126
+        color: "#000000"
+        align: left
+        x_src_id: area_17
+        text: |-
+          いつすべきか？
+  Ch3_A:
+    source_size: [1437, 1999]
+    target_size: [5742, 8000]
+    render_dpi: 600
+    pdf_page_box: [689, 960]
+    boxes:
+      - id: b001_text
+        type: text
+        box: [1792, 1256, 5317, 1992]
+        tight: [1792, 1256, 5317, 1992]
+        font: 126
+        color: "#000000"
+        align: left
+        x_src_id: area_1
+        text: |-
+          近代的な多くの国では、生活の大半はインターネット上で起
+          きる——文化、ニュース、政治、品物やサービスの購入、友
+          だちづくり。
+      - id: b002_text
+        type: text
+        box: [379, 2024, 5455, 2504]
+        tight: [379, 2024, 5455, 2504]
+        font: 115
+        color: "#000000"
+        align: left
+        x_src_id: area_2
+        text: |-
+          ゆえに: ネットを動かすアルゴリズムによって、私たちの生活は動かされています。
+          最初は「アルゴリズム」も単純でした：
+      - id: b003_text
+        type: text
+        box: [4094, 2704, 5265, 3327]
+        tight: [4094, 2704, 5265, 3327]
+        font: 110
+        color: "#000000"
+        align: center
+        x_src_id: area_3
+        x_src_tier: 0
+        text: |-
+          投稿は
+          新しいものから
+          古いものの順
+      - id: b006_text
+        type: text
+        box: [1792, 7528, 2756, 7712]
+        tight: [1792, 7528, 2756, 7712]
+        font: 75
+        color: "#000000"
+        align: left
+        x_src_id: area_4
+        text: |-
+          証明: 読む人に任された
+      - id: b007_text
+        type: text
+        box: [333, 3792, 5489, 4288]
+        tight: [333, 3792, 5489, 4288]
+        font: 115
+        color: "#000000"
+        align: left
+        x_src_id: area_5
+        text: |-
+          そして、雑多な情報の中を突き抜けて表示することができるように、アルゴリズムは複雑化。
+          ユーザーには理解できませんでしたが、コーダーには理解できました……だいたいのところは
+      - id: b008_text
+        type: text
+        box: [3916, 4328, 5382, 5344]
+        tight: [3916, 4328, 5382, 5344]
+        font: 110
+        color: "#000000"
+        align: center
+        x_src_id: area_6
+        x_src_tier: 0
+        text: |-
+          ええっと… 
+          これは
+          高評価投票数の対数を
+          時間で割り引く
+          のかな？
+      - id: b013_text
+        type: text
+        box: [1079, 5264, 2894, 5488]
+        tight: [1079, 5264, 2894, 5488]
+        font: 72
+        color: "#000000"
+        align: center
+        x_src_id: area_7
+        text: |-
+          ※これは2008年のredditのアルゴリズム！
+      - id: b014_text
+        type: text
+        box: [322, 5688, 5507, 6224]
+        tight: [322, 5688, 5507, 6224]
+        font: 115
+        color: "#000000"
+        align: left
+        x_src_id: area_8
+        text: |-
+          でも今、機械学習の時代——プログラムは設計されるのではなく「育てられる」——
+          誰も生活を動かすアルゴリズムを理解していません。
+      - id: b015_text
+        type: text
+        box: [3876, 6352, 5277, 7552]
+        tight: [3876, 6352, 5277, 7552]
+        font: 115
+        color: "#ffffff"
+        align: left
+        x_src_id: area_9
+        text: |-
+          悟りとは自己認識でなく自
+          己“不”認識。あまりに広
+          大な精神ゆえ、それ自身さ
+          え真の名を語れない。
+      - id: b016_title
+        type: title
+        box: [1120, 168, 5610, 1048]
+        tight: [1120, 168, 5610, 1048]
+        font: 459
+        color: "#000000"
+        align: left
+        x_src_id: area_10
+        text: |-
+          有能さ
+      - id: b017_title
+        type: title
+        box: [333, 1264, 1751, 1784]
+        tight: [333, 1264, 1751, 1784]
+        font: 287
+        color: "#000000"
+        align: left
+        x_src_id: area_11
+        text: |-
+          問題点:
+  Ch3_B:
+    source_size: [1437, 1999]
+    target_size: [5742, 8000]
+    render_dpi: 600
+    pdf_page_box: [689, 960]
+    boxes:
+      - id: b001_title
+        type: title
+        box: [333, 1328, 1837, 1776]
+        tight: [333, 1328, 1837, 1776]
+        font: 287
+        color: "#000000"
+        align: left
+        x_src_id: area_1
+        text: |-
+          解決策:
+      - id: b002_text
+        type: text
+        box: [1883, 1320, 5432, 1944]
+        tight: [1883, 1320, 5432, 1944]
+        font: 126
+        color: "#000000"
+        align: left
+        x_src_id: area_2
+        text: |-
+          みんなに影響するアルゴリズムは
+          みんなが検証できるべき！
+      - id: b003_text
+        type: text
+        box: [603, 2048, 5197, 3112]
+        tight: [603, 2048, 5197, 3112]
+        font: 126
+        color: "#000000"
+        align: left
+        x_src_id: area_3
+        text: |-
+          Xのコミュニティノート（旧Twitter のBirdwatch）で考えてみましょう。普段
+          は意見が合わない人どうしが合意する点を強調する仕組みです。
+          これまでのところ、「ファクトチェック」のプラットフォームで、アメリカで政
+          治的立場の異なる幅広い人々から正味プラスの評価を得た、広く使われている唯
+          一のプラットフォームです！
+      - id: b004_text
+        type: text
+        box: [454, 3176, 2188, 4248]
+        tight: [454, 3176, 2188, 4248]
+        font: 115
+        color: "#000000"
+        align: left
+        x_src_id: area_4
+        text: |-
+          その理由の１つには、誰もがアル
+          ゴリズムのどの部分も確認できる。
+          ユーザーは、入力を全て見るこ
+          とができます（例えば、ユーザー
+          作成のノート）。
+      - id: b005_text
+        type: text
+        box: [436, 4464, 2188, 5432]
+        tight: [436, 4464, 2188, 5432]
+        font: 115
+        color: "#000000"
+        align: left
+        x_src_id: area_5
+        text: |-
+          ユーザーはノートが正しく分析さ
+          れているかを確認できます（コー
+          ドは無料・公開）。
+      - id: b006_text
+        type: text
+        box: [442, 5664, 2182, 6848]
+        tight: [442, 5664, 2182, 6848]
+        font: 115
+        color: "#000000"
+        align: left
+        x_src_id: area_6
+        text: |-
+          最後に、ユーザーは出力も確認で
+          きる：提案されてくるノートが確
+          かに「意見の違う人でも合意して
+          いる」という点を。
+      - id: b007_text
+        type: text
+        box: [373, 7096, 4927, 7680]
+        tight: [373, 7096, 4927, 7680]
+        font: 126
+        color: "#000000"
+        align: left
+        x_src_id: area_7
+        text: |-
+          コミュニティノートは多くの例のただの一例にすぎません！
+          要するに、プロセスを信頼するには、プロセスを確認できねばならないというこ
+          とです。
+      - id: b008_title
+        type: title
+        box: [224, 40, 5558, 536]
+        tight: [224, 40, 5558, 536]
+        font: 287
+        color: "#000000"
+        align: left
+        x_src_id: area_8
+        text: |-
+          NOT：「とにかく信じろ（笑）」
+      - id: b009_title
+        type: title
+        box: [224, 568, 5558, 1064]
+        tight: [224, 568, 5558, 1064]
+        font: 281
+        color: "#000000"
+        align: left
+        x_src_id: area_9
+        text: |-
+          BUT：誰もがプロセスを確認できる
+  Ch4_A:
+    source_size: [1437, 1999]
+    target_size: [5742, 8000]
+    render_dpi: 600
+    pdf_page_box: [689, 960]
+    boxes:
+      - id: b001_text
+        type: text
+        box: [2446, 1488, 5455, 2944]
+        tight: [2446, 1488, 5455, 2944]
+        font: 172
+        color: "#ffffff"
+        align: left
+        x_src_id: area_1
+        text: |-
+          航海士にコンパスが要るように、社会
+          にも進む方向を測る手段が要る。そこ
+          で指標を使う！ でも残念ながら、指
+          標はしばしば壊れている。
+      - id: b002_title
+        type: title
+        box: [299, 1296, 1912, 1776]
+        tight: [299, 1296, 1912, 1776]
+        font: 287
+        color: "#ffffff"
+        align: left
+        x_src_id: area_2
+        text: |-
+          問題点:
+      - id: b003_title
+        type: title
+        box: [1051, 96, 5639, 1040]
+        tight: [1051, 96, 5639, 1040]
+        font: 459
+        color: "#000000"
+        align: left
+        x_src_id: area_3
+        text: |-
+          応答
+      - id: b004_text
+        type: text
+        box: [299, 3272, 2360, 4016]
+        tight: [299, 3272, 2360, 4016]
+        font: 126
+        color: "#000000"
+        align: left
+        x_src_id: area_4
+        text: |-
+          例えば、政治家は「平均所得は上昇」
+          と言うかもしれません…
+      - id: b005_text
+        type: text
+        box: [2446, 3272, 5518, 4000]
+        tight: [2446, 3272, 5518, 4000]
+        font: 126
+        color: "#000000"
+        align: left
+        x_src_id: area_5
+        text: |-
+          でも「平均」は、上位層で大きく伸びている一方、下
+          位層では停滞・下落する事実を覆い隠します。
+      - id: b006_text
+        type: text
+        box: [2537, 7216, 2952, 7591]
+        tight: [2537, 7216, 2952, 7591]
+        font: 78
+        color: "#000000"
+        align: center
+        x_src_id: area_6
+        x_src_tier: 0
+        text: |-
+          ほか
+          色々
+      - id: b008_text
+        type: text
+        box: [2980, 5472, 5426, 6672]
+        tight: [2980, 5472, 5426, 6672]
+        font: 126
+        color: "#000000"
+        align: left
+        x_src_id: area_7
+        text: |-
+          これと同じように、現代メディア（ひいて
+          は文化・政治）を動かすアルゴリズムやAI
+          は、悪名高い失敗を抱えた指標を使ってい
+          ます。
+      - id: b009_text
+        type: text
+        box: [1757, 6120, 2750, 6456]
+        tight: [1757, 6120, 2750, 6456]
+        font: 80
+        color: "#000000"
+        align: center
+        x_src_id: area_8
+        text: |-
+          クリックベイト
+      - id: b010_text
+        type: text
+        box: [597, 5640, 1499, 5992]
+        tight: [597, 5640, 1499, 5992]
+        font: 126
+        color: "#000000"
+        align: center
+        x_src_id: area_9
+        text: |-
+          指標
+      - id: b011_text
+        type: text
+        box: [1826, 6576, 2693, 6920]
+        tight: [1826, 6576, 2693, 6920]
+        font: 80
+        color: "#000000"
+        align: center
+        x_src_id: area_10
+        text: |-
+          レイジベイト
+          による炎上
+      - id: b012_text
+        type: text
+        box: [3106, 6736, 5449, 7472]
+        tight: [3106, 6736, 5449, 7472]
+        font: 115
+        color: "#000000"
+        align: left
+        x_src_id: area_11
+        text: |-
+          では、私たちが大切にするもの——「コンパ
+          ス」——を、惑わされずに測るには？
+      - id: b013_text
+        type: text
+        box: [907, 6632, 1545, 6936]
+        tight: [907, 6632, 1545, 6936]
+        font: 80
+        color: "#000000"
+        align: center
+        x_src_id: area_12
+        text: |-
+          コメント数
+      - id: b014_text
+        type: text
+        box: [1694, 5632, 2710, 5960]
+        tight: [1694, 5632, 2710, 5960]
+        font: 126
+        color: "#000000"
+        align: center
+        x_src_id: area_13
+        text: |-
+          失敗
+      - id: b015_text
+        type: text
+        box: [884, 7080, 1568, 7448]
+        tight: [884, 7080, 1568, 7448]
+        font: 80
+        color: "#000000"
+        align: center
+        x_src_id: area_14
+        text: |-
+          ユーザーの
+          高評価
+      - id: b016_text
+        type: text
+        box: [936, 6168, 1545, 6472]
+        tight: [936, 6168, 1545, 6472]
+        font: 80
+        color: "#000000"
+        align: center
+        x_src_id: area_15
+        text: |-
+          クリック数
+      - id: b017_text
+        type: text
+        box: [1751, 7044, 2808, 7364]
+        tight: [1751, 7044, 2808, 7364]
+        font: 80
+        color: "#000000"
+        align: center
+        x_src_id: area_16
+        x_src_tier: 0
+        text: |-
+          チャットボットの
+          おべっか現象
+  Ch4_B:
+    source_size: [1437, 1999]
+    target_size: [5742, 8000]
+    render_dpi: 600
+    pdf_page_box: [689, 960]
+    boxes:
+      - id: b001_title
+        type: title
+        box: [86, 40, 5610, 568]
+        tight: [86, 40, 5610, 568]
+        font: 287
+        color: "#000000"
+        align: left
+        x_src_id: area_1
+        text: |-
+          NOT: 私たちを惑わす指標　
+      - id: b002_title
+        type: title
+        box: [339, 1304, 1832, 1768]
+        tight: [339, 1304, 1832, 1768]
+        font: 287
+        color: "#ffffff"
+        align: left
+        x_src_id: area_2
+        text: |-
+          解決策:
+      - id: b003_title
+        type: title
+        box: [98, 544, 5598, 1024]
+        tight: [98, 544, 5598, 1024]
+        font: 287
+        color: "#000000"
+        align: left
+        x_src_id: area_3
+        text: |-
+          BUT: 私たちが私たちのために作る指標
+      - id: b004_text
+        type: text
+        box: [254, 1950, 2885, 2297]
+        tight: [254, 1950, 2885, 2297]
+        font: 126
+        color: "#ffffff"
+        align: left
+        x_src_id: area_4
+        text: |-
+          ①わたしたちが本当に大切にしている
+          ことを測る
+      - id: b005_text
+        type: text
+        box: [246, 2254, 2875, 2558]
+        tight: [246, 2254, 2875, 2558]
+        font: 126
+        color: "#ffffff"
+        align: left
+        x_src_id: area_5
+        text: |-
+          ②複数の方法で測る
+      - id: b006_text
+        type: text
+        box: [240, 2601, 2812, 2833]
+        tight: [240, 2601, 2812, 2833]
+        font: 121
+        color: "#ffffff"
+        align: left
+        x_src_id: area_6
+        text: |-
+          ③指標をこまめに見直す
+      - id: b007_text
+        type: text
+        box: [292, 3280, 1767, 4736]
+        tight: [292, 3280, 1767, 4736]
+        font: 121
+        color: "#000000"
+        align: left
+        x_src_id: area_7
+        text: |-
+          Weval.org を見てみよう。
+          AIチャットボット向けの多
+          様な評価が集められていて
+          市民による、市民のための
+          設計されています。
+      - id: b008_text
+        type: text
+        box: [4019, 3312, 5489, 4368]
+        tight: [4019, 3312, 5489, 4368]
+        font: 126
+        color: "#000000"
+        align: right
+        x_src_id: area_8
+        text: |-
+          １つ１つの大切にしてい
+          る価値は、頑健性のため
+          多様な方法で測られま
+          す。
+      - id: b009_text
+        type: text
+        box: [4100, 4424, 5478, 5816]
+        tight: [4100, 4424, 5478, 5816]
+        font: 121
+        color: "#000000"
+        align: right
+        x_src_id: area_9
+        text: |-
+          そして、フィードバック
+          ループもあります：
+          評価自体を評価し、改善
+          します。
+      - id: b010_text
+        type: text
+        box: [319, 4872, 1731, 6638]
+        tight: [319, 4872, 1731, 6638]
+        font: 126
+        color: "#000000"
+        align: left
+        x_src_id: area_10
+        x_src_tier: 0
+        text: |-
+          業界は主にAIの能力を測りますが、Weval は人々が大切にするものを測ります。
+          ・誠実さ
+          ・文化的な流暢さ
+          ・対立の解消
+          ・メンタルヘルスの
+          ベストプラクティス
+      - id: b015_text
+        type: text
+        box: [3956, 5984, 5472, 7008]
+        tight: [3956, 5984, 5472, 7008]
+        font: 115
+        color: "#000000"
+        align: right
+        x_src_id: area_11
+        text: |-
+          このようにすると
+          価値にのっとった
+          「コンパス」を設計して
+          技術を導くことが
+          できるのです！
+      - id: b016_text
+        type: text
+        box: [2946, 5552, 3636, 6298]
+        tight: [2946, 5552, 3636, 6298]
+        font: 115
+        color: "#7cc967"
+        align: center
+        x_src_id: area_12
+        text: |-
+          私達
+          のための
+      - id: b017_text
+        type: text
+        box: [2228, 5552, 2917, 6296]
+        tight: [2228, 5552, 2917, 6296]
+        font: 115
+        color: "#7cc967"
+        align: center
+        x_src_id: area_13
+        text: |-
+          私達
+          による
+  Ch5_A:
+    source_size: [1437, 1999]
+    target_size: [5742, 8000]
+    render_dpi: 600
+    pdf_page_box: [689, 960]
+    boxes:
+      - id: b001_text
+        type: text
+        box: [1792, 1240, 5403, 1872]
+        tight: [1792, 1240, 5403, 1872]
+        font: 126
+        color: "#000000"
+        align: left
+        x_src_id: area_1
+        text: |-
+          人が違うものを求めるとき、私たちは「マイナス・サム」や
+          「ゼロ・サム」思考に傾きがち。
+      - id: b002_text
+        type: text
+        box: [304, 1896, 2785, 2472]
+        tight: [304, 1896, 2785, 2472]
+        font: 115
+        color: "#000000"
+        align: left
+        x_src_id: area_2
+        text: |-
+          それはどういう意味？ 想像してください。
+          二人の料理人が同じオレンジを欲しがっていま
+          す
+      - id: b003_text
+        type: text
+        box: [2980, 1896, 5392, 2448]
+        tight: [2980, 1896, 5392, 2448]
+        font: 115
+        color: "#000000"
+        align: center
+        x_src_id: area_3
+        text: |-
+          奪い合いをすることもできます。すると、両
+          方とも損をします——「ネガティブサム」で
+          す。
+      - id: b004_text
+        type: text
+        box: [408, 4376, 2831, 5560]
+        tight: [408, 4376, 2831, 5560]
+        font: 115
+        color: "#000000"
+        align: left
+        x_src_id: area_4
+        text: |-
+          半分ずつ分けるほうがまし。
+          でもそれは「私の得＝あなたの損」を前提とし
+          ています。多く取れば相手は減る。合計はゼロ
+          ——「ゼロサム」
+      - id: b005_text
+        type: text
+        box: [2974, 4360, 5380, 5552]
+        tight: [2974, 4360, 5380, 5552]
+        font: 115
+        color: "#000000"
+        align: left
+        x_src_id: area_5
+        text: |-
+          でも、二人とも得することはできない？ つま
+          り、「ポジティブ・サム」です。いつも可能
+          とは限りませんが、もしこの種の機会を逃す
+          とすると惜しいです。では「できるだけウィ
+          ン・ウィン」に近づくには？
+      - id: b006_text
+        type: text
+        box: [339, 7392, 5375, 7672]
+        tight: [339, 7392, 5375, 7672]
+        font: 92
+        color: "#000000"
+        align: center
+        x_src_id: area_6
+        text: |-
+          ※このオレンジの物語はフォレット(1925)、フィッシャー＆ユーリー(1981)、コヴィー(1984)から。
+      - id: b007_title
+        type: title
+        box: [1166, 120, 5644, 1000]
+        tight: [1166, 120, 5644, 1000]
+        font: 459
+        color: "#000000"
+        align: left
+        x_src_id: area_7
+        text: |-
+          連帯
+      - id: b008_title
+        type: title
+        box: [327, 1256, 1763, 1792]
+        tight: [327, 1256, 1763, 1792]
+        font: 293
+        color: "#000000"
+        align: left
+        x_src_id: area_8
+        text: |-
+          問題点:
+      - id: b009_text
+        type: text
+        box: [4522, 6268, 5223, 6444]
+        tight: [4522, 6268, 5223, 6444]
+        font: 80
+        color: "#000000"
+        align: right
+        x_src_id: area_9
+        text: |-
+          あなたの勝ち
+      - id: b010_text
+        type: text
+        box: [3403, 7013, 4287, 7221]
+        tight: [3403, 7013, 4287, 7221]
+        font: 80
+        color: "#000000"
+        align: center
+        x_src_id: area_10
+        text: |-
+          わたしの負け
+      - id: b011_text
+        type: text
+        box: [4169, 5688, 5208, 5904]
+        tight: [4169, 5688, 5208, 5904]
+        font: 80
+        color: "#000000"
+        align: left
+        x_src_id: area_11
+        text: |-
+          わたしの勝ち
+      - id: b012_text
+        type: text
+        box: [3095, 6552, 3956, 6768]
+        tight: [3095, 6552, 3956, 6768]
+        font: 80
+        color: "#000000"
+        align: left
+        x_src_id: area_12
+        text: |-
+          あなたの負け
+  Ch5_B:
+    source_size: [1437, 1999]
+    target_size: [5742, 8000]
+    render_dpi: 600
+    pdf_page_box: [689, 960]
+    boxes:
+      - id: b001_title
+        type: title
+        box: [224, 80, 5685, 560]
+        tight: [224, 80, 5685, 560]
+        font: 287
+        color: "#000000"
+        align: left
+        x_src_id: area_1
+        text: |-
+          NOT: 確実な相互破壊
+      - id: b002_title
+        type: title
+        box: [327, 1304, 1855, 1768]
+        tight: [327, 1304, 1855, 1768]
+        font: 287
+        color: "#000000"
+        align: left
+        x_src_id: area_2
+        text: |-
+          解決策:
+      - id: b003_text
+        type: text
+        box: [1889, 1240, 5403, 1968]
+        tight: [1889, 1240, 5403, 1968]
+        font: 103
+        color: "#000000"
+        align: left
+        x_src_id: area_3
+        text: |-
+          少し引いて考えてみましょう。
+          欲しい「WHAT」の背後にあるなぜ（WHY）欲しいのかを問う？
+          そのうえで——両方の「WHY」を満たす新しい「WHAT」を作れないか？
+      - id: b004_text
+        type: text
+        box: [373, 1976, 2808, 2520]
+        tight: [373, 1976, 2808, 2520]
+        font: 115
+        color: "#000000"
+        align: left
+        x_src_id: area_4
+        text: |-
+          例えば、二人の料理人は、お互いに告げます……
+      - id: b005_text
+        type: text
+        box: [2997, 1976, 5380, 2496]
+        tight: [2997, 1976, 5380, 2496]
+        font: 115
+        color: "#000000"
+        align: left
+        x_src_id: area_5
+        text: |-
+          ……そして気づきます。二人とも必要として
+          いることを100%満たせて、無駄もないことに！
+      - id: b006_text
+        type: text
+        box: [1039, 2712, 1860, 3056]
+        tight: [1039, 2712, 1860, 3056]
+        font: 75
+        color: "#000000"
+        align: center
+        x_src_id: area_6
+        text: |-
+          オレンジの
+          リキュールを作りたい
+      - id: b007_text
+        type: text
+        box: [3629, 2656, 4490, 3048]
+        tight: [3629, 2656, 4490, 3048]
+        font: 72
+        color: "#000000"
+        align: center
+        x_src_id: area_7
+        text: |-
+          リキュール用に
+          皮とゼストが要る
+      - id: b008_text
+        type: text
+        box: [1292, 3248, 1929, 3592]
+        tight: [1292, 3248, 1929, 3592]
+        font: 75
+        color: "#000000"
+        align: center
+        x_src_id: area_8
+        text: |-
+          オレンジ果汁が
+          要る
+      - id: b009_text
+        type: text
+        box: [4128, 3072, 4668, 3424]
+        tight: [4128, 3072, 4668, 3424]
+        font: 72
+        color: "#000000"
+        align: center
+        x_src_id: area_9
+        text: |-
+          ジュース用に
+          果肉が要る
+      - id: b010_text
+        type: text
+        box: [413, 4400, 2825, 5528]
+        tight: [413, 4400, 2825, 5528]
+        font: 115
+        color: "#000000"
+        align: left
+        x_src_id: area_10
+        text: |-
+          そう、たしかにこれは作り話めいていますが、
+          ウィン・ウィンは現実でも見つかることが
+          あります！ 数年前、台湾はタイムゾーン変更
+          を巡り激論になりました。
+      - id: b011_text
+        type: text
+        box: [2960, 4392, 5372, 5488]
+        tight: [2960, 4392, 5372, 5488]
+        font: 115
+        color: "#000000"
+        align: left
+        x_src_id: area_11
+        text: |-
+          でも、pol.is と開放政府連絡⼈(Participat
+          ion Officer)の助けで、互いのWHYを満たす
+          新しいWHATを発見しました。科学者・芸術家
+          を呼ぶという目的をために「ゴールドカード」
+          で在留資格をあたえるというWHATでした。
+      - id: b012_text
+        type: text
+        box: [534, 7424, 4950, 7736]
+        tight: [534, 7424, 4950, 7736]
+        font: 103
+        color: "#000000"
+        align: center
+        x_src_id: area_12
+        text: |-
+          このようにして、より良い議論はウィン・ウィンへ導くのです！
+      - id: b013_title
+        type: title
+        box: [224, 560, 5690, 1056]
+        tight: [224, 560, 5690, 1056]
+        font: 287
+        color: "#000000"
+        align: left
+        x_src_id: area_13
+        text: |-
+          BUT: できるだけウィン・ウィンに
+      - id: b014_text
+        type: text
+        box: [1889, 5712, 2785, 6592]
+        tight: [1889, 5712, 2785, 6592]
+        font: 126
+        color: "#000000"
+        align: center
+        x_src_id: area_14
+        text: |-
+          維持派:
+          変更には
+          経済的に
+          高い代償
+      - id: b015_text
+        type: text
+        box: [3055, 5768, 3841, 6232]
+        tight: [3055, 5768, 3841, 6232]
+        font: 126
+        color: "#000000"
+        align: center
+        x_src_id: area_15
+        text: |-
+          独自性
+          追求
+      - id: b016_text
+        type: text
+        box: [4258, 5815, 5153, 6372]
+        tight: [4258, 5815, 5153, 6372]
+        font: 126
+        color: "#000000"
+        align: center
+        x_src_id: area_16
+        x_src_tier: 0
+        text: |-
+          創作する方
+          ようこそ！
+      - id: b018_text
+        type: text
+        box: [436, 5624, 1212, 6720]
+        tight: [436, 5624, 1212, 6720]
+        font: 126
+        color: "#000000"
+        align: center
+        x_src_id: area_17
+        text: |-
+          変更派：
+          独自性を
+          持つのに
+          必要
+      - id: b019_text
+        type: text
+        box: [3296, 6296, 3663, 6624]
+        tight: [3296, 6296, 3663, 6624]
+        font: 126
+        color: "#000000"
+        align: center
+        x_src_id: area_18
+        text: |-
+          と
+      - id: b020_text
+        type: text
+        box: [3049, 6632, 3859, 7232]
+        tight: [3049, 6632, 3859, 7232]
+        font: 126
+        color: "#000000"
+        align: center
+        x_src_id: area_19
+        text: |-
+          経済性
+          両立する
+          には???
+  Ch6_A:
+    source_size: [1437, 1999]
+    target_size: [5742, 8000]
+    render_dpi: 600
+    pdf_page_box: [689, 960]
+    boxes:
+      - id: b001_text
+        type: text
+        box: [1769, 1256, 5375, 1800]
+        tight: [1769, 1256, 5375, 1800]
+        font: 126
+        color: "#000000"
+        align: left
+        x_src_id: area_1
+        text: |-
+          社会のすべてを一つのカゴにまとめるな！
+      - id: b002_text
+        type: text
+        box: [454, 1984, 2842, 2920]
+        tight: [454, 1984, 2842, 2920]
+        font: 126
+        color: "#000000"
+        align: left
+        x_src_id: area_2
+        text: |-
+          現代の文化・ニュース・政治は、一握り
+          の多国籍企業のプラットフォームを通り
+          ます。
+      - id: b003_text
+        type: text
+        box: [339, 5384, 5472, 6144]
+        tight: [339, 5384, 5472, 6144]
+        font: 126
+        color: "#000000"
+        align: center
+        x_src_id: area_3
+        text: |-
+          しかも、中央集権的プラットフォームが壊れなかったとしても、「成功」でさえ悪いこと
+          になりえます：教会や地域コミュニティという「分厚い中間層」を欠いた、味気ない画一
+          的文化をつくりだします。
+      - id: b004_title
+        type: title
+        box: [1125, 120, 5610, 1048]
+        tight: [1125, 120, 5610, 1048]
+        font: 459
+        color: "#000000"
+        align: left
+        x_src_id: area_4
+        text: |-
+          共生
+      - id: b005_title
+        type: title
+        box: [333, 1256, 1717, 1792]
+        tight: [333, 1256, 1717, 1792]
+        font: 287
+        color: "#000000"
+        align: left
+        x_src_id: area_5
+        text: |-
+          問題点:
+      - id: b006_text
+        type: text
+        box: [2969, 1984, 5375, 2888]
+        tight: [2969, 1984, 5375, 2888]
+        font: 126
+        color: "#000000"
+        align: left
+        x_src_id: area_6
+        text: |-
+          でも、これは「単一障害点」を生みます！
+           それが事故だとしても強欲だとしても、
+          これらは私たちを裏切り可能性があります。
+  Ch6_B:
+    source_size: [1437, 1999]
+    target_size: [5742, 8000]
+    render_dpi: 600
+    pdf_page_box: [689, 960]
+    boxes:
+      - id: b001_text
+        type: text
+        box: [1883, 1288, 5443, 1880]
+        tight: [1883, 1288, 5443, 1880]
+        font: 138
+        color: "#000000"
+        align: left
+        x_src_id: area_1
+        text: |-
+          ユーザーのために戦おう！地域の自律を守る技術を求め
+          よう。最近の例を3つ…
+      - id: b002_title
+        type: title
+        box: [310, 1320, 1809, 1776]
+        tight: [310, 1320, 1809, 1776]
+        font: 287
+        color: "#000000"
+        align: left
+        x_src_id: area_2
+        text: |-
+          解決策:
+      - id: b003_text
+        type: text
+        box: [2504, 2032, 5443, 3616]
+        tight: [2504, 2032, 5443, 3616]
+        font: 138
+        color: "#000000"
+        align: left
+        x_src_id: area_3
+        text: |-
+          「子どものことを考えろ」は権威主義者が支配を広げる常套句。これに対して、ROOST.tools は、オープンソースのツール（中央集権的支配なし！）を作る非営利団体で、各組織が各プラットフォーム上で児童虐待を検知・防止するのに役立っています。
+      - id: b004_text
+        type: text
+        box: [322, 3824, 3405, 5056]
+        tight: [322, 3824, 3405, 5056]
+        font: 138
+        color: "#000000"
+        align: right
+        x_src_id: area_4
+        text: |-
+          gpt-oss-safeguard はオープンソースのAIで
+          「自分独自のポリシーを持ち込む」(Bring Your
+           Own Policy)ことができます。コミュニティの
+          ルールと価値観をこれに伝えれば、人間のモデレ
+          ーターを置き換えるのではなく、コミュニティを
+          守るのを支援します。
+      - id: b005_text
+        type: text
+        box: [4215, 4170, 4601, 4662]
+        tight: [4215, 4170, 4601, 4662]
+        font: 120
+        color: "#000000"
+        align: center
+        x_src_id: area_5
+        x_src_tier: 0
+        text: |-
+          憲
+          法
+      - id: b006_text
+        type: text
+        box: [2819, 5320, 5461, 6712]
+        tight: [2819, 5320, 5461, 6712]
+        font: 138
+        color: "#000000"
+        align: left
+        x_src_id: area_6
+        text: |-
+          そして最後に、この本自体も
+          「この場の精神（Kami）」の恩恵を受け
+          ています：
+          クラウド上の企業的粗製品でなく
+          一つの関係を見守り一台の
+          特定のノートPCでローカルに動く
+           Kamiです。
+      - id: b008_text
+        type: text
+        box: [456, 7076, 4949, 7442]
+        tight: [456, 7076, 4949, 7442]
+        font: 138
+        color: "#000000"
+        align: left
+        x_src_id: area_7
+        x_src_tier: 1
+        text: |-
+          本書の他の全ての原則とともにこの原則によって力を一点に集中させず人々のあいだで力を分かち合うそんな未来を築くことができる。
+      - id: b009_text
+        type: text
+        box: [3426, 7525, 4970, 7736]
+        tight: [3426, 7525, 4970, 7736]
+        font: 138
+        color: "#000000"
+        align: right
+        x_src_id: area_8
+        text: |-
+          長寿と繁栄を！
+      - id: b010_title
+        type: title
+        box: [155, 16, 5644, 568]
+        tight: [155, 16, 5644, 568]
+        font: 287
+        color: "#000000"
+        align: left
+        x_src_id: area_9
+        text: |-
+          NOT: 画一的を迫る支配者
+      - id: b011_title
+        type: title
+        box: [161, 584, 5662, 1120]
+        tight: [161, 584, 5662, 1120]
+        font: 287
+        color: "#000000"
+        align: left
+        x_src_id: area_10
+        text: |-
+          BUT: 地域の人々のための地域の解決策
+      - id: b012_text
+        type: text
+        box: [1407, 6032, 1792, 6296]
+        tight: [1407, 6032, 1792, 6296]
+        font: 40
+        color: "#000000"
+        align: center
+        x_src_id: area_11
+        text: |-
+          人々のコミュニティ
+          にAIを入れて繁栄す
+          る方法
+      - id: b013_text
+        type: text
+        box: [1361, 5832, 1786, 6008]
+        tight: [1361, 5832, 1786, 6008]
+        font: 75
+        color: "#000000"
+        align: center
+        x_src_id: area_12
+        text: |-
+          CIVIC.AI
